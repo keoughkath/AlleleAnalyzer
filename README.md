@@ -12,4 +12,4 @@ ExcisionFinder is a database and toolset for analysis and design of allele-speci
 3. Use ExcisionFinder to annotate a custom genome
 4. Use ExcisionFinder to annotate a custom cohort
 5. Step-by-step tutorials
-* [Analyze shared pairs and generate an arc plot for your favorite gene](https://github.com/keoughkath/ExcisionFinder/wiki/Analyze-shared-pairs-and-generate-an-arc-plot-for-your-favorite-gene)
+* [Design allele-specific sgRNAs](https://github.com/keoughkath/ExcisionFinder/wiki/Tutorial:-design-sgRNAs-in-an-individual-genome)
