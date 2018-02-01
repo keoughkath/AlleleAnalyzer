@@ -1,9 +1,9 @@
 import pandas as pd
 import sys
 
-infile = sys.argv[0]
-gene_vars_file = sys.argv[1]
-outfile = sys.argv[2]
+infile = sys.argv[1]
+gene_vars_file = sys.argv[2]
+outfile = sys.argv[3]
 
 gene_bed = pd.read_csv(infile, sep='\t')
 gene_vars = pd.read_csv(gene_vars_file, sep='\t',header=None,
