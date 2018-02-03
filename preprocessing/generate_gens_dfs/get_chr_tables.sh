@@ -14,7 +14,6 @@ echo $1 $2 $3
 # Check if bcftools is installed, and then check version number
 version=`bcftools -v | head -1 | cut -d ' ' -f2`
 
-echo $version
 req_version=1.5
 
 if [ "$version" == "$req_version" ]; then
