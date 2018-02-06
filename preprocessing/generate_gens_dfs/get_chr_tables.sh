@@ -12,11 +12,14 @@ echo $1 $2 $3
 
 
 # Check if bcftools is installed, and then check version number
-version=`bcftools -v | head -n1 | cut -d" " -f2`
+version=`bcftools -v | head -1 | cut -d ' ' -f2`
+
 req_version=1.5
 
-if [ "$(printf '%s\n' "$req_version" "$version" | sort -r | head -n1)" = "$req_version" ]; then
-	echo "Error: bcftools mush be 1.5 or greater. Current version: $version"
+if [ "$version" == "$req_version" ]; then
+	echo "bcftools version $version, running"
+else
+	echo "Error: bcftools must be 1.5. Current version: $version"
 	exit 1
 fi
 
