@@ -8,7 +8,7 @@ ExcisionFinder is a database and toolset for analysis and design of allele-speci
 * [How it works](https://github.com/keoughkath/ExcisionFinder/wiki/Overview)
 * [Install ExcisionFinder and its requirements](https://github.com/keoughkath/ExcisionFinder/wiki/Install-ExcisionFinder-and-its-requirements)
 2. Reference database
-* [Query the database](https://github.com/keoughkath/ExcisionFinder/wiki/Querying-ExcisionFinder-variant-annotations)
+* [Query the database](https://github.com/keoughkath/ExcisionFinder/wiki/Tutorial:-Querying-ExcisionFinder-variant-annotations)
 3. Tutorials
 * [Design allele-specific sgRNAs](https://github.com/keoughkath/ExcisionFinder/wiki/Tutorial:-design-sgRNAs-in-an-individual-genome)
 * [Analyze shared pairs and generate an arcplot for your favorite gene](https://github.com/keoughkath/ExcisionFinder/wiki/Analyze-shared-pairs-and-generate-an-arc-plot-for-your-favorite-gene)
