@@ -1,7 +1,6 @@
 # get chr tables
 # required that you have bcftools installed, at least version 1.5
 
-
 bcf_fn=$1
 chrom=$2
 outdir=$3
@@ -26,7 +25,7 @@ fi
 
 sample_list=`bcftools query -l $bcf_fn`
 
-# Removed --samples, it would not let me run multivariant vcfs
+# Removed --samples in the 'bcftools query' command, it would not let me run with multivariant vcfs.
 bcftools norm -m - ${bcf_fn} | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%TGT]\n'  > $outdir/${chrom}_prechrtable.txt
 
 # Added $(dirname "$0"), so that is the script is called from another dir, this script can be accessed
