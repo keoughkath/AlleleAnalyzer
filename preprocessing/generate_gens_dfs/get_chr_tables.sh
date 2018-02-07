@@ -2,7 +2,7 @@
 # required that you have bcftools installed, at least version 1.5
 
 bcf_fn=$1
-chrom=$2
+chrom="${2//chr}" # removes the 'chr', if included
 outdir=$3
 
 # The -p option will only write the directory if it doesn't exist
