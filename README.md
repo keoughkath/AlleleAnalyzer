@@ -2,6 +2,8 @@
 
 ExcisionFinder is a database and toolset for analysis and design of allele-specific CRISPR editing that leverages >2,500 human genomes to estimate feasibility of allele-specific loci in varied individuals and design allele-specific sgRNAs in individual genomes. 
 
+**Note**: ExcisionFinder is currently in early beta and has many bugs, which we are actively working to fix. If you use this tool and find any issues or anything that is difficult to interpret, please send a message to this github or to kathleen.keough@gladstone.ucsf.edu
+
 ## Table of Contents
 
 1. Getting started
