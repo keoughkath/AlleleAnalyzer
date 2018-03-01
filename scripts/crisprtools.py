@@ -12,42 +12,41 @@ pd.options.mode.chained_assignment = None
 # "three-prime PAMs, e.g. Cas9, PAM is 3' of the sgRNA sequence"
 tpp_for = {}
 
-tpp_for['SpCas9'] = r'[atcg]gg' # SpCas9, SpCas9-HF1, eSpCas1.1
-tpp_for['SpCas9_VRER'] = r'[atcg]gcg' # SpCas9 VRER variant
-tpp_for['SpCas9_EQR'] = r'[actg]gag' # SpCas9 EQR variant
-tpp_for['SpCas9_VQR_1'] = r'[atcg]ga' # SpCas9 VQR variant 1
-tpp_for['SpCas9_VQR_2'] = r'[atcg]g[atcg]g' # SpCas9 VQR variant 2
-tpp_for['StCas9'] = r'[actg]{2}agaa' # S. thermophilus Cas9
-tpp_for['StCas9_2'] = r'[actg]gg[actg]g' # S. thermophilus Cas9 2
-tpp_for['SaCas9'] = r'[atcg]{2}g[ag]{2}t' # SaCas9
-tpp_for['SaCas9_KKH'] = r'[atcg]{3}[ag]{2}t' # SaCas9 KKH variant
-tpp_for['nmCas9'] = r'[atcg]{4}g[ac]tt' # nmCas9
-tpp_for['cjCas9'] = r'[actg]{4}aca' # campylobacter jejuni Cas9
+tpp_for['SpCas9'] = (r'[atcg]gg', 3) # SpCas9, SpCas9-HF1, eSpCas1.1
+tpp_for['SpCas9_VRER'] = (r'[atcg]gcg', 4) # SpCas9 VRER variant
+tpp_for['SpCas9_EQR'] = (r'[actg]gag', 4) # SpCas9 EQR variant
+tpp_for['SpCas9_VQR_1'] = (r'[atcg]ga[atcg]', 4) # SpCas9 VQR variant 1
+tpp_for['SpCas9_VQR_2'] = (r'[atcg]g[atcg]g', 4) # SpCas9 VQR variant 2
+tpp_for['StCas9'] = (r'[actg]{2}agaa', 6) # S. thermophilus Cas9
+tpp_for['StCas9_2'] = (r'[actg]gg[actg]g', 5) # S. thermophilus Cas9 2
+tpp_for['SaCas9'] = (r'[atcg]{2}g[ag]{2}t', 6) # SaCas9
+tpp_for['SaCas9_KKH'] = (r'[atcg]{3}[ag]{2}t', 6) # SaCas9 KKH variant
+tpp_for['nmCas9'] = (r'[atcg]{4}g[ac]tt', 8) # nmCas9
+tpp_for['cjCas9'] = (r'[actg]{4}aca', 7) # campylobacter jejuni Cas9
 
 # find 3' PAMs on antisense strand (reverse complement)
 tpp_rev = {}
 
-tpp_rev['SpCas9_rev'] = r'cc[atcg]' # SpCas9 reverse complement 
-tpp_rev['SpCas9_VRER_rev'] = r'cgc[atcg]' # SpCas9 VRER variant reverse complement 
-tpp_rev['SpCas9_EQR_rev'] = r'ctc[actg]' # SpCas9 EQR variant reverse complement 
-tpp_rev['SpCas9_VQR_1_rev'] = r'[atcg]tc[atcg]' # SpCas9 VQR variant 1 reverse complement 
-tpp_rev['SpCas9_VQR_2_rev'] = r'c[atcg]c[atcg]' # SpCas9 VQR variant 2 reverse complement 
-tpp_rev['StCas9_rev'] = r'ttct[actg]{2}' # S. thermophilus Cas9 reverse complement
-tpp_rev['StCas9_2_rev'] = r'g[atcg]gg[atcg]' # S. thermophilus Cas9 2 reverse complement 
-tpp_rev['SaCas9_rev'] = r't[tc]{2}c[atcg]{2}' # SaCas9 reverse complement 
-tpp_rev['SaCas9_KKH_rev'] = r'a[tc]{2}[atcg]{3}' # SaCas9 KKH variant reverse complement 
-tpp_rev['nmCas9_rev'] = r'aa[tg]c[atcg]{4}' # NmCas9 reverse complement 
-tpp_rev['cjCas9_rev'] = r'tgt[actg]{4}' # campylobacter jejuni Cas9
-
+tpp_rev['SpCas9_rev'] = (r'cc[atcg]', 3) # SpCas9 reverse complement 
+tpp_rev['SpCas9_VRER_rev'] = (r'cgc[atcg]', 4) # SpCas9 VRER variant reverse complement 
+tpp_rev['SpCas9_EQR_rev'] = (r'ctc[actg]', 4) # SpCas9 EQR variant reverse complement 
+tpp_rev['SpCas9_VQR_1_rev'] = (r'[atcg]tc[atcg]', 4) # SpCas9 VQR variant 1 reverse complement <--
+tpp_rev['SpCas9_VQR_2_rev'] = (r'c[atcg]c[atcg]', 4) # SpCas9 VQR variant 2 reverse complement 
+tpp_rev['StCas9_rev'] = (r'ttct[actg]{2}', 6) # S. thermophilus Cas9 reverse complement
+tpp_rev['StCas9_2_rev'] = (r'g[atcg]gg[atcg]', 5) # S. thermophilus Cas9 2 reverse complement 
+tpp_rev['SaCas9_rev'] = (r't[tc]{2}c[atcg]{2}', 6) # SaCas9 reverse complement 
+tpp_rev['SaCas9_KKH_rev'] = (r'a[tc]{2}[atcg]{3}', 6) # SaCas9 KKH variant reverse complement 
+tpp_rev['nmCas9_rev'] = (r'aa[tg]c[atcg]{4}', 8) # NmCas9 reverse complement 
+tpp_rev['cjCas9_rev'] = (r'tgt[actg]{4}', 7) # campylobacter jejuni Cas9
 # "five-prime PAMs, e.g. cpf1, PAM is 5' of the sgRNA sequence"
 fpp_for = {}
 
-fpp_for['cpf1'] = r'ttt[atcg]' # Cpf1, PAM 5' of guide
+fpp_for['cpf1'] = (r'ttt[atcg]', 4) # Cpf1, PAM 5' of guide
 
 # find 5' PAMs on antisense strand (reverse complement)
 fpp_rev = {}
 
-fpp_rev['cpf1_rev'] = r'[atcg]aaa' # Cpf1, PAM 5' of guide
+fpp_rev['cpf1_rev'] = (r'[atcg]aaa', 4) # Cpf1, PAM 5' of guide
 
 def find_the_pams(seqio_object):
 
@@ -105,10 +104,10 @@ def find_spec_pams(cas,python_string,orient='3prime'):
         return(starts)
 
     if orient == '3prime':
-    	for_starts = get_pam_fiveprime(tpp_for[cas],sequence)
-    	rev_starts = get_pam_threeprime(tpp_rev[cas+'_rev'],sequence)
+        for_starts = get_pam_fiveprime(tpp_for[cas][0],sequence)
+        rev_starts = get_pam_threeprime(tpp_rev[cas+'_rev'][0],sequence)
     elif orient == '5prime':
-    	for_starts = get_pam_threeprime(fpp_for[cas],sequence)
-    	rev_starts = get_pam_fiveprime(fpp_rev[cas+'_rev'],sequence)
+        for_starts = get_pam_threeprime(fpp_for[cas][0],sequence)
+        rev_starts = get_pam_fiveprime(fpp_rev[cas+'_rev'][0],sequence)
 
     return(for_starts,rev_starts)
