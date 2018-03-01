@@ -36,7 +36,7 @@ def main():
         vars['chrom'] = vars['chrom'].str[3:]
     vars = vars.query('chrom == @chrom')
     vars_fixed = vars.applymap(fix_multiallelics)
-
+    
     vars_fixed.to_hdf(os.path.join(sys.argv[3], f'chr{chrom}_gens.hdf5'), 'all', complib='blosc')
 
 
