@@ -10,6 +10,12 @@ from Bio import SeqIO
 pd.options.mode.chained_assignment = None
 
 # "three-prime PAMs, e.g. Cas9, PAM is 3' of the sgRNA sequence"
+
+# tuple which includes length intended to make it easier to generate 
+# IGV files later than also show PAM site, not to be confused with 
+# the manuscript analysis that uses only the non-N bases of PAMs 
+# and analyses how that influences occurrence in the genome
+
 tpp_for = {}
 
 tpp_for['SpCas9'] = (r'[atcg]gg', 3) # SpCas9, SpCas9-HF1, eSpCas1.1
