@@ -26,12 +26,13 @@ gene_bed['full_start'], gene_bed['full_stop'] = zip(* gene_bed.apply(adjusted_le
 
 gene_vars['chrom'] = list(map(lambda x: 'chr' + str(x), gene_vars['chrom']))
 gene_bed['variant position in guide'] = gene_bed['variant_position_in_guide']
-gene_bed['score'] = 1000*(1/(gene_bed['variant_position_in_guide'] + 1))
+#gene_bed['score'] = 1000*(1/(gene_bed['variant_position_in_guide'] + 1))
 gene_bed = gene_bed.merge(gene_vars, how='left')
+gene_bed['label'] = gene_bed.apply(lambda row: row['guide_id']+'_'+str(row['variant_position_in_guide']), axis=1) 
 
 gene_bed_display = gene_bed.query('variant_position_in_guide != 2 and variant_position_in_guide >= 0')[['chrom',
                                                                      'full_start','full_stop',
-                                                                     'variant position in guide','score',
+                                                                     'label','norm_score',
                                                                     'strand','start','stop']]
 
 header_str = f'track name={track_name} description=AS cut sites as produced by ExcisionFinder visibility=3 useScore=1 '
