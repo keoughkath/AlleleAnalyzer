@@ -260,13 +260,13 @@ def main(args):
                     alt_seq = ref_genome['chr'+str(chrom)][var - 11:var - 1] + alt + ref_genome['chr'+str(chrom)][
                                                                          var + len(alt) - 1:var + len(alt) - 1 + 10]
                 ref_pams_for, ref_pams_rev = crisprtools.find_spec_pams(cas, ref_seq)
-                ref_pams_for = [x.__add__(var - 12) for x in ref_pams_for]
-                ref_pams_rev = [x.__add__(var - 12) for x in ref_pams_rev]
+                # ref_pams_for = [x.__add__(var - 12) for x in ref_pams_for]
+                # ref_pams_rev = [x.__add__(var - 12) for x in ref_pams_rev]
                 alt_pams_for, alt_pams_rev = crisprtools.find_spec_pams(cas, alt_seq)
-                alt_pams_for = [x.__add__(var - 12) for x in alt_pams_for]
-                alt_pams_rev = [x.__add__(var - 12) for x in alt_pams_rev]
-                # new_pams_for = set(alt_pams_for).difference(set(pam_for_pos))
-                # print(new_pams_for)
+                # alt_pams_for = [x.__add__(var - 12) for x in alt_pams_for]
+                # alt_pams_rev = [x.__add__(var - 12) for x in alt_pams_rev]
+                new_pams_for = set(alt_pams_for).difference(set(pam_for_pos))
+                print(ref_pams_for, alt_pams_for)
                 # check = set(ref_pams_for).intersection(pam_for_pos)
                 # check_rev = set(ref_pams_rev).intersection(pam_rev_pos)
                 # check_alt = set(alt_pams_for).intersection(pam_for_pos)
