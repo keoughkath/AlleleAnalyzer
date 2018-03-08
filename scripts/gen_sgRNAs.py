@@ -104,31 +104,76 @@ def get_range_downstream(pam_pos, pam_length, guide_length):
     return sgrna
 
 
-def get_alt_seq(chrom, pam_start, var_pos, ref, alt, guide_length, ref_genome, strand='positive'):
+def get_alt_seq(chrom, pam_start, var_pos, ref, alt, guide_length, ref_genome, strand='positive', var_type='near_pam'):
 
     if strand == 'positive':
 
-        # reference sgRNA
+        if var_type == 'near_pam':
 
-        ref_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length - 11:pam_start - 1]
+            # reference sgRNA
 
-        # alt sgRNA 
+            ref_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length:pam_start]
 
-        alt_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length - 11:var_pos - 1].lower() + alt.upper() + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start - 1].lower()
+            # alt sgRNA 
 
-        return ref_seq[-guide_length:].upper(), alt_seq[-guide_length:].upper()
+            alt_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length:var_pos - 1].lower() + alt.upper() + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start].lower()
+
+        elif var_type == 'destroys_pam':
+
+            # reference sgRNA
+
+            ref_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length:pam_start]
+
+            # in this case, variant is destroying a PAM, rendering the alternate allele no longer a CRISPR site
+            # therefore, for lack of a better solution, return empty alt_seq
+
+            alt_seq = ''
+
+        elif var_type == 'makes_pam': # this might break with indels
+
+            # reference sgRNA
+
+            ref_seq = ''
+
+            # in this case, variant is destroying a PAM, rendering the alternate allele no longer a CRISPR site
+            # therefore, for lack of a better solution, return empty alt_seq
+
+            alt_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length:pam_start]
+
+        return ref_seq.upper(), alt_seq.upper()
 
     elif strand == 'negative':
 
-        # reference sgRNA
+        if var_type == 'near_pam':
 
-        ref_seq = ref_genome['chr'+str(chrom)][pam_start:pam_start + guide_length + 11]
+            # reference sgRNA
 
-        # alt sgRNA 
+            ref_seq = ref_genome['chr'+str(chrom)][pam_start:pam_start + guide_length]
 
-        alt_seq = ref_genome['chr'+str(chrom)][pam_start:var_pos-1].lower() + alt.upper() + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start + guide_length + 11].lower()
+            # alt sgRNA 
 
-        return ref_seq[:guide_length].upper(), alt_seq[:guide_length].upper()
+            alt_seq = ref_genome['chr'+str(chrom)][pam_start:var_pos].lower() + alt.upper() + ref_genome['chr'+str(chrom)][var_pos + len(alt):pam_start + guide_length].lower()
+
+        elif var_type == 'destroys_pam':
+
+            # reference sgRNA
+
+            ref_seq = ref_genome['chr'+str(chrom)][pam_start:pam_start + guide_length]
+
+            # in this case, variant is destroying a PAM, rendering the alternate allele no longer a CRISPR site
+            # therefore, for lack of a better solution, return empty alt_seq
+
+            alt_seq = ''
+
+        elif var_type == 'makes_pam': # this might break with indels
+
+            # reference sgRNA
+
+            ref_seq = ''
+
+            alt_seq = ref_genome['chr'+str(chrom)][pam_start:pam_start + guide_length ]
+
+        return ref_seq.upper(), alt_seq.upper()
 
     else:
 
@@ -201,8 +246,10 @@ def main(args):
                 print('Something is wrong, exiting.') # change this to actual exception
             cas_prox_vars = []
             vars_near_pams = targ_gens.query(f'var_near_{cas} == 1')
-            vars_makes_pam = targ_gens.query(f'makes_{cas} == 1')
-            vars_breaks_pam = targ_gens.query(f'breaks_{cas} == 1')
+            # vars_makes_pam = targ_gens.query(f'makes_{cas} == 1')
+            # vars_breaks_pam = targ_gens.query(f'breaks_{cas} == 1')
+            vars_in_pam = targ_gens.query(f'(makes_{cas} == 1) or (breaks_{cas} == 1)')
+            print(targ_gens.query(f'makes_{cas} == 1'))
             for index, row in vars_near_pams.iterrows():
                 var = row['pos']
                 proximal_sites_for = list(range(row['pos'], row['pos']+guide_length+1))
@@ -215,7 +262,7 @@ def main(args):
                     refs.append(ref_allele)
                     alt_allele = row['alt']
                     alts.append(alt_allele)
-                    grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome)
+                    grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome, var_type='near_pam')
                     grna_refs.append(grna_ref_seq)
                     grna_alts.append(grna_alt_seq)
                     var_pos = pam_site - var + pam_length
@@ -236,17 +283,18 @@ def main(args):
                     refs.append(ref_allele)
                     alt_allele = row['alt']
                     alts.append(alt_allele)
-                    grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome)
+                    grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome, 
+                        strand='negative', var_type='near_pam')
                     grna_refs.append(grna_ref_seq)
                     grna_alts.append(grna_alt_seq)
-                    var_pos = var - pam_site - pam_length
+                    var_pos = var - pam_site + pam_length
                     variant_pos_in_guides.append(var_pos)
                     cas_types.append(cas)
                     chroms.append(chrom)
                     variants_positions.append(var)
                     strands.append('-')
                     pam_pos.append(pam_site)
-            for index, row in vars_breaks_pam.iterrows():
+            for index, row in vars_in_pam.iterrows():
                 var = row['pos']
                 ref = row['ref']
                 alt = row['alt']
@@ -259,22 +307,104 @@ def main(args):
                 else:
                     alt_seq = ref_genome['chr'+str(chrom)][var - 11:var - 1] + alt + ref_genome['chr'+str(chrom)][
                                                                          var + len(alt) - 1:var + len(alt) - 1 + 10]
+
                 ref_pams_for, ref_pams_rev = crisprtools.find_spec_pams(cas, ref_seq)
-                # ref_pams_for = [x.__add__(var - 12) for x in ref_pams_for]
-                # ref_pams_rev = [x.__add__(var - 12) for x in ref_pams_rev]
                 alt_pams_for, alt_pams_rev = crisprtools.find_spec_pams(cas, alt_seq)
-                # alt_pams_for = [x.__add__(var - 12) for x in alt_pams_for]
-                # alt_pams_rev = [x.__add__(var - 12) for x in alt_pams_rev]
-                new_pams_for = set(alt_pams_for).difference(set(pam_for_pos))
-                print(ref_pams_for, alt_pams_for)
-                # check = set(ref_pams_for).intersection(pam_for_pos)
-                # check_rev = set(ref_pams_rev).intersection(pam_rev_pos)
-                # check_alt = set(alt_pams_for).intersection(pam_for_pos)
-                # print(var, check, check_rev)
-                print(ref, alt)
-                print(ref_seq)
-                print(alt_seq)
-                # print(ref_pams_for, alt_pams_for)
+
+                lost_pams_for = list(set(ref_pams_for).difference(set(alt_pams_for)))
+                lost_pams_rev = list(set(ref_pams_rev).difference(set(alt_pams_rev)))
+
+                made_pams_for = list(set(alt_pams_for).difference(set(ref_pams_for)))
+                made_pams_rev = list(set(alt_pams_rev).difference(set(ref_pams_rev)))
+
+                print(made_pams_for)
+
+                for pam in lost_pams_for:
+                    pam_site = pam + var - 11
+                    ref_allele = ref
+                    alt_allele = alt
+                    grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome, 
+                        var_type='destroys_pam')
+                    start = pam_site - guide_length
+                    starts.append(start)
+                    stops.append(pam_site)
+                    ref_allele = row['ref']
+                    refs.append(ref_allele)
+                    alt_allele = row['alt']
+                    alts.append(alt_allele)
+                    grna_refs.append(grna_ref_seq)
+                    grna_alts.append(grna_alt_seq)
+                    var_pos = pam_site + pam_length - var
+                    variant_pos_in_guides.append(var_pos)
+                    cas_types.append(cas)
+                    chroms.append(chrom)
+                    variants_positions.append(var)
+                    strands.append('+')
+                    pam_pos.append(pam_site)
+                for pam in lost_pams_rev:
+                    pam_site = pam + var - 11
+                    ref_allele = ref
+                    alt_allele = alt
+                    grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome, 
+                        strand='negative', var_type='destroys_pam')
+                    start = pam_site
+                    starts.append(start)
+                    stop = pam_site + guide_length
+                    stops.append(stop)
+                    refs.append(ref_allele)
+                    alts.append(alt_allele)
+                    grna_refs.append(grna_ref_seq)
+                    grna_alts.append(grna_alt_seq)
+                    var_pos = var - pam_site - pam_length
+                    variant_pos_in_guides.append(var_pos)
+                    cas_types.append(cas)
+                    chroms.append(chrom)
+                    variants_positions.append(var)
+                    strands.append('-')
+                    pam_pos.append(pam_site)
+                for pam in made_pams_for:
+                    pam_site = pam + var - 11
+                    ref_allele = ref
+                    alt_allele = alt
+                    grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome, 
+                        var_type='makes_pam')
+                    start = pam_site - guide_length
+                    starts.append(start)
+                    stops.append(pam_site)
+                    ref_allele = row['ref']
+                    refs.append(ref_allele)
+                    alt_allele = row['alt']
+                    alts.append(alt_allele)
+                    grna_refs.append(grna_ref_seq)
+                    grna_alts.append(grna_alt_seq)
+                    var_pos = pam_site + pam_length - var
+                    variant_pos_in_guides.append(var_pos)
+                    cas_types.append(cas)
+                    chroms.append(chrom)
+                    variants_positions.append(var)
+                    strands.append('+')
+                    pam_pos.append(pam_site)
+                for pam in made_pams_rev:
+                    pam_site = pam + var - 11
+                    ref_allele = ref
+                    alt_allele = alt
+                    grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome, 
+                        strand='negative', var_type='makes_pam')
+                    start = pam_site
+                    starts.append(start)
+                    stop = pam_site + guide_length
+                    stops.append(stop)
+                    refs.append(ref_allele)
+                    alts.append(alt_allele)
+                    grna_refs.append(grna_ref_seq)
+                    grna_alts.append(grna_alt_seq)
+                    var_pos = var - pam_site - pam_length
+                    variant_pos_in_guides.append(var_pos)
+                    cas_types.append(cas)
+                    chroms.append(chrom)
+                    variants_positions.append(var)
+                    strands.append('-')
+                    pam_pos.append(pam_site)
 
            
 
