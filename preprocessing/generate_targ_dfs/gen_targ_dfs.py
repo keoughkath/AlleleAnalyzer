@@ -4,7 +4,6 @@
 gen_targ_dfs.py generates necessary variant targetability data for use with ExcisionFinder. Written in Python v 3.6.1.
 Kathleen Keough 2017.
 Usage:
-
     gen_targ_dfs.py <gens_file> <cas> <chrom> <pams_dir> <ref_genome_fasta> <out_dir>
 
 Arguments:
@@ -94,7 +93,7 @@ def makes_breaks_pam(cas, chrom, pos, ref, alt, ref_genome):
         alt_pams_for, alt_pams_rev = crisprtools.find_spec_pams(cas, alt_seq, orient='5prime')
     else:
       
-        alt_seq = hg19[str(chrom)][pos - 11:pos - 1] + alt + hg19[str(chrom)][
+        alt_seq = ref_genome[str(chrom)][pos - 11:pos - 1] + alt + ref_genome[str(chrom)][
                                                              pos + len(alt) - 2:pos + len(alt) - 2 + 10]
 
     if cas == 'cpf1':
