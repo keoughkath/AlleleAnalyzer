@@ -90,7 +90,7 @@ def main(args):
 		f.close()
 
 	# Append fix_chr_tables.py
-	vars = pd.read_csv(out_file_name, sep='\t', header=None, names=['chrom', 'pos', 'ref', 'alt', 'genotype'],
+	vars = pd.read_csv(temp_file_name, sep='\t', header=None, names=['chrom', 'pos', 'ref', 'alt', 'genotype'],
 		usecols=['chrom', 'pos', 'ref', 'alt', 'genotype'])
 
 	if vars.empty:
