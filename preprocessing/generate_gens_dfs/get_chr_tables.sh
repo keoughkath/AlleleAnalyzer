@@ -28,6 +28,6 @@ fi
 bcftools view -r chr${chrom}:${start}-${stop} ${bcf_fn} | bcftools norm -m - | bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%TGT]\n' > $outdir/${chrom}_prechrtable.txt
 
 # Added $(dirname "$0"), so that is the script is called from another dir, this script can be accessed
-python $(dirname "$0")/fix_chr_tables.py $outdir/${chrom}_prechrtable.txt $chrom $outdir $name
+python3 $(dirname "$0")/fix_chr_tables.py $outdir/${chrom}_prechrtable.txt $chrom $outdir $name
 
 rm $outdir/${chrom}_prechrtable.txt
