@@ -2,23 +2,26 @@
 # Rewriting `get_chr_tables.sh` in python
 # -*- coding: utf-8 -*-
 """
-get_chr_tables.py generates chr tables listing all variants in a defined . Written in Python v 3.6.1.
+get_chr_tables.py generates a table (tsv file) listing all variants in a defined interval for a specified 
+individual (based on input VCF file). This basically reformats genotypes from VCF for easier 
+processing later when designing sgRNAs.
+Written in Python v 3.6.1.
 Kathleen Keough and Michael Olvera 2017-2018.
 Usage:
-	get_chr_tables.py <vcf_file> <chrom> <outdir> <start> <stop> <name>
+	get_chr_tables.py <vcf_file> <locus> <outdir> <name>
 
 Arguments:
-	vcf_file           The sample vcf file, seperated by chromosome. 
-	chrom               Chromosome number in the file.
+	vcf_file           The sample vcf file, separated by chromosome. 
+	locus			   Locus from which to pull variants, in format chromosome:start-stop.
 	outdir             Directory in which to save the output files.
-	start				The start of where to pull variants.
-	stop				The stop of where to pull variants.
-	name				The name of the out file.
+	name			   The name for the output file.
 """
 import pandas as pd
 from docopt import docopt
 import subprocess, os, sys
 import regex as re
+
+__version__='0.0.0'
 
 REQUIRED_BCFTOOLS_VER = 1.5
 
@@ -68,12 +71,17 @@ def main(args):
 	# Make the outdir
 	if not os.path.exists(args['<outdir>']):
 		os.makedirs(args['<outdir>'])
+
 	# Check if bcftools is installed, and then check version number
 	check_bcftools()
-	# See if chrom contains chr
-	chrom = norm_chr(args['<chrom>'])
 
-	bcl_v=f"bcftools view -r chr{args['<chrom>']}:{args['<start>']}-{args['<stop>']} {args['<vcf_file>']}"
+	# See if chrom contains chr
+	chrom = norm_chr(args['<locus>'].split(':')[0])
+	start = args['<locus>'].split(':')[1].split('-')[0]
+	stop = args['<locus>'].split(':')[1].split('-')[1]
+
+	bcl_v=f"bcftools view -r chr{args['<chrom>']}:{str(start)}-{str(stop)} {args['<vcf_file>']}"
+	
 	# Pipe for bcftools
 	bcl_view = subprocess.Popen(bcl_v,shell=True, stdout=subprocess.PIPE)
 	bcl_norm = subprocess.Popen("bcftools norm -m -",shell=True, stdin=bcl_view.stdout, stdout=subprocess.PIPE)
