@@ -22,18 +22,18 @@ def adjusted_length(row):
 		return (row['start']-cpt.tpp_for[cas][1],row['stop'])
 
 
-# gene_bed['full_start'], gene_bed['full_stop'] = zip(* gene_bed.apply(adjusted_length, axis=1))
+gene_bed['full_start'], gene_bed['full_stop'] = zip(* gene_bed.apply(adjusted_length, axis=1))
 
 # gene_vars['chrom'] = list(map(lambda x: 'chr' + str(x), gene_vars['chrom']))
 gene_bed['variant position in guide'] = gene_bed['variant_position_in_guide']
-#gene_bed['score'] = 1000*(1/(gene_bed['variant_position_in_guide'] + 1))
+gene_bed['score'] = 1000*(1/(gene_bed['variant_position_in_guide'] + 1))
 # gene_bed = gene_bed.merge(gene_vars, how='left')
 gene_bed['guide_id'] = gene_bed.index
 gene_bed['label'] = gene_bed.apply(lambda row: str(row['guide_id'])+'_'+str(row['variant_position_in_guide']), axis=1) 
 
-gene_bed_display = gene_bed[['chrom','start','stop','label','strand']]
+gene_bed_display = gene_bed[['chrom','full_start','full_stop','label','score','strand','start','stop']]
 
 header_str = f'track name={track_name} description=AS cut sites as produced by ExcisionFinder visibility=3 useScore=1'
 
 gene_bed_display.to_csv(outfile+'.bed',sep='\t',index=False,
-                       header=[header_str,'','','',''])
+                       header=[header_str,'','','','','','',''])
