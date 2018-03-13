@@ -440,7 +440,7 @@ def main(args):
     # get rsID and AF info if provided
     if args['<gene_vars>']:
         gene_vars = pd.read_hdf(args['<gene_vars>'], where='pos >= start and pos <= stop')
-        if gene_vars['chrom'].tolist()[0].startswish('chr'):
+        if str(gene_vars['chrom'].tolist()[0]).startswith('chr'):
             gene_vars['chrom'] = list(map(lambda x: 'chr' + str(x), gene_vars['chrom']))
         out = out.merge(gene_vars, how='left')
 

@@ -80,7 +80,12 @@ def main(args):
 	start = args['<locus>'].split(':')[1].split('-')[0]
 	stop = args['<locus>'].split(':')[1].split('-')[1]
 
-	bcl_v=f"bcftools view -r chr{args['<chrom>']}:{str(start)}-{str(stop)} {args['<vcf_file>']}"
+	if chrom.startswith('chr'):
+		chr_name = chrom
+	else:
+		chr_name = 'chr' + str(chrom)
+
+	bcl_v=f"bcftools view -r {chr_name}:{str(start)}-{str(stop)} {args['<vcf_file>']}"
 	
 	# Pipe for bcftools
 	bcl_view = subprocess.Popen(bcl_v,shell=True, stdout=subprocess.PIPE)
@@ -92,7 +97,7 @@ def main(args):
 	# output  
 	raw_dat = bcl_query.communicate()[0].decode("utf-8")
 
-	temp_file_name=f"{args['<outdir>']}/{args['<chrom>']}_prechrtable.txt"
+	temp_file_name=f"{args['<outdir>']}/{str(chrom)}_prechrtable.txt"
 	with open(temp_file_name, 'w') as f:
 		f.write(raw_dat)
 		f.close()

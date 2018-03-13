@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-gen_targ_dfs.py generates necessary variant targetability data for use with ExcisionFinder. Written in Python v 3.6.1.
-Kathleen Keough 2017.
+gen_targ_dfs.py generates a dataframe that stores annotations for each variant in 
+the specified locus and genome that tell us whether the variant generates allele-specific 
+sgRNA sites for the Cas variety/varieties specified. Written in Python v 3.6.1.
+Kathleen Keough 2018.
 Usage:
     gen_targ_dfs.py <gens_file> <cas> <chrom> <pams_dir> <ref_genome_fasta> <out_dir>
 
