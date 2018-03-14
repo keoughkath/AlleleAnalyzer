@@ -43,7 +43,7 @@ def main(args):
 	gene_bed['variant position in guide'] = gene_bed['variant_position_in_guide']
 	gene_bed['score'] = 1000*(1/(gene_bed['variant_position_in_guide'] + 1))
 	gene_bed['guide_id'] = gene_bed.index
-	if 'rsID' in gene_bed.columns():
+	if 'rsID' in gene_bed.columns:
 		gene_bed['label'] = gene_bed.apply(lambda row: str(row['guide_id'])+\
 			'_'+str(row['variant_position_in_guide'])+'_'+str(row['rsID']+'_AF'+str(row['AF'])), axis=1) 
 	else:
@@ -56,3 +56,7 @@ def main(args):
 
 	gene_bed_display.to_csv(outfile+'.bed',sep='\t',index=False,
 	                       header=[header_str,'','','','','','',''])
+
+if __name__ == '__main__':
+    arguments = docopt(__doc__, version=__version__)
+    main(arguments)

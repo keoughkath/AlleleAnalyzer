@@ -87,6 +87,16 @@ fpp_rev['cpf1_rev'] = r'[atcg]aaa' # Cpf1, PAM 5' of guide
  #           'SpCas9_VQR_2', 'StCas9', 'StCas9_2', 'SaCas9', 'SaCas9_KKH', 'nmCas9', 'cjCas9']
 
 
+def check_heterozgosity(gens_in):
+    """
+    Takes in the raw pandas DF and returns the columns who's genotype is HET.
+    :param gens_in: The input gens file, pandas.Dataframe.
+    :return: The input gens file without HOMO vars, pandas.Dataframe. 
+    """
+    return gens_in[gens_in.apply(lambda row: \
+        row['genotype'].split('/')[0] != row['genotype'].split('/')[1], axis=1)]
+
+
 def get_range_upstream(pam_pos, pam_length, guide_length):
     """
     Get positions within specified sgRNA length bp upstream, i.e. for forward 3' PAMs or reverse 5' PAMs
@@ -206,6 +216,8 @@ def main(args):
 
     # load locus variants
     gens = pd.read_hdf(gens)#.query('pos <= @stop and pos >= @start').head(5) # remove the stop once finished testing
+
+    gens = check_heterozgosity(gens)
 
     if gens.empty:
         print('No het variants in that region in this genome, exiting.')
