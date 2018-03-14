@@ -1,0 +1,9 @@
+pytest>=3.4
+pandas>=0.21.0
+numpy>=1.13.3
+docopt>=0.6.2
+pyfaidx>=0.5.1
+regex
+Bio
+re
+bcftools>=1.5
