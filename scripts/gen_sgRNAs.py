@@ -322,9 +322,9 @@ def main(args):
                     alt_allele = alt
                     grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome, 
                         var_type='destroys_pam')
-                    start = pam_site - guide_length - 1
+                    start = pam_site - guide_length
                     starts.append(start)
-                    stops.append(pam_site - 1)
+                    stops.append(pam_site)
                     ref_allele = row['ref']
                     refs.append(ref_allele)
                     alt_allele = row['alt']
@@ -388,9 +388,9 @@ def main(args):
                     alt_allele = alt
                     grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome, 
                         var_type='makes_pam')
-                    start = pam_site - guide_length - 1
+                    start = pam_site - guide_length
                     starts.append(start)
-                    stops.append(pam_site - 1)
+                    stops.append(pam_site)
                     ref_allele = row['ref']
                     refs.append(ref_allele)
                     alt_allele = row['alt']
