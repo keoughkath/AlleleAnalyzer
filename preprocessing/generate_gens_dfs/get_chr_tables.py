@@ -7,14 +7,18 @@ individual (based on input VCF file). This basically reformats genotypes from VC
 processing later when designing sgRNAs.
 Written in Python v 3.6.1.
 Kathleen Keough and Michael Olvera 2017-2018.
+
 Usage:
-	get_chr_tables.py <vcf_file> <locus> <outdir> <name>
+	get_chr_tables.py <vcf_file> <locus> <outdir> <name> [-f]
 
 Arguments:
 	vcf_file           The sample vcf file, separated by chromosome. 
 	locus			   Locus from which to pull variants, in format chromosome:start-stop.
 	outdir             Directory in which to save the output files.
 	name			   The name for the output file.
+	-f                 If this option is specified, keeps homozygous variants in output file. 
+	                   Therefore, downstream this will generate both allele-specific and non-
+	                   allele-specific sgRNAs.
 """
 import pandas as pd
 from docopt import docopt
@@ -58,9 +62,9 @@ def het(genotype):
 	return gen1 != gen2
 
 
-def filter_hets(gens_df, mode='keep het'):
+def filter_hets(gens_df):
 	"""
-	if user specifies that they want homozygous instead, specify that here (not implemented yet)
+	filters for only heterozygous variants
 	"""
 	gens_df['het'] = gens_df.apply(lambda row: het(row['genotype']), axis=1)
 	print(gens_df.head())
@@ -68,6 +72,7 @@ def filter_hets(gens_df, mode='keep het'):
 
 
 def main(args):
+	print(args)
 	# Make the outdir
 	if not os.path.exists(args['<outdir>']):
 		os.makedirs(args['<outdir>'])
@@ -113,8 +118,10 @@ def main(args):
 	if 'chr' in str(vars.chrom.iloc[0]):
 		vars['chrom'] = vars['chrom'].map(lambda x: norm_chr(x))
 
-	vars = vars.query('chrom == @chrom')
-	vars_fixed = vars.applymap(fix_multiallelics)
+	if args['-f']:
+		vars_fixed = filter_hets(vars.applymap(fix_multiallelics))
+	else:
+		vars_fixed = vars.applymap(fix_multiallelics)
 
 	if args['<name>']:
 		outname = f"{args['<name>']}.hdf5"

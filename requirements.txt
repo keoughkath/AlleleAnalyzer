@@ -4,6 +4,5 @@ numpy>=1.13.3
 docopt>=0.6.2
 pyfaidx>=0.5.1
 regex
-Bio
-re
+Biopython
 bcftools>=1.5
