@@ -58,7 +58,7 @@ def fix_multiallelics(cell):
 
 
 def het(genotype):
-	gen1, gen2 = genotype.split('/|\|')
+	gen1, gen2 = re.split('/|\|',genotype)
 	return gen1 != gen2
 
 
@@ -66,16 +66,16 @@ def filter_hets(gens_df):
 	"""
 	filters for only heterozygous variants
 	"""
+	# print(gens_df.head(3))
 	gens_df['het'] = gens_df.apply(lambda row: het(row['genotype']), axis=1)
-	print(gens_df.head())
-	return gens_df.query('het')[['chrom', 'pos', 'ref', 'alt', 'genotype']]
+	out = gens_df.query('het')[['chrom', 'pos', 'ref', 'alt', 'genotype']]
+	return out
 
 
 def main(args):
 	print(args)
 	# Make the outdir
-	if not os.path.exists(args['<outdir>']):
-		os.makedirs(args['<outdir>'])
+	os.makedirs(args['<outdir>'], exist_ok=True)
 
 	# Check if bcftools is installed, and then check version number
 	check_bcftools()
@@ -119,16 +119,16 @@ def main(args):
 		vars['chrom'] = vars['chrom'].map(lambda x: norm_chr(x))
 
 	if args['-f']:
-		vars_fixed = filter_hets(vars.applymap(fix_multiallelics))
-	else:
 		vars_fixed = vars.applymap(fix_multiallelics)
+	else:
+		vars_fixed = filter_hets(vars.applymap(fix_multiallelics))
 
 	if args['<name>']:
 		outname = f"{args['<name>']}.hdf5"
 	else:
 		outname = f'chr{chrom}_gens.hdf5'
 
-	vars_fixed.to_hdf(os.path.join(args['<outdir>'], outname), 'all', complib='blosc')
+	vars_fixed.to_hdf(os.path.join(args['<outdir>'], outname), 'all', format='t', data_columns=True, complib='blosc')
 
 	os.remove(temp_file_name)
 
