@@ -189,7 +189,7 @@ def get_alt_seq(chrom, pam_start, var_pos, ref, alt, guide_length, ref_genome, s
 
 def make_rev_comp(s):
     """
-    
+    Generates reverse comp sequences from an input sequence.
     """
    return s[::-1].translate(s[::-1].maketrans('ACGT', 'TGCA'))
 
