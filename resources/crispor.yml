@@ -1,0 +1,63 @@
+name: crispor2
+channels:
+  - bioconda
+  - defaults
+  - conda-forge
+dependencies:
+  - biopython=1.68=py27_0
+  - bwa=0.7.17=pl5.22.0_0
+  - mmtf-python=1.0.2=py27_0
+  - mysql-connector-c=6.1.6=2
+  - python-dateutil=2.3=py27_0
+  - tabix=0.2.5=0
+  - twobitreader=3.1.4=py27_0
+  - ucsc-fetchchromsizes=357=0
+  - perl=5.22.0.1=0
+  - ca-certificates=2017.08.26=h1d4fec5_0
+  - certifi=2017.11.5=py27h71e7faf_0
+  - freetype=2.5.5=2
+  - intel-openmp=2018.0.0=hc7b2577_8
+  - jbig=2.1=hdba287a_0
+  - jpeg=9b=h024ee3a_2
+  - libedit=3.1=heed3624_0
+  - libffi=3.2.1=hd88cf55_4
+  - libgcc=7.2.0=h69d50b8_2
+  - libgcc-ng=7.2.0=h7cc24e2_2
+  - libgfortran-ng=7.2.0=h9f7466a_2
+  - libpng=1.6.30=1
+  - libstdcxx-ng=7.2.0=h7a57d05_2
+  - libtiff=4.0.6=3
+  - libuuid=1.0.3=h1bed415_2
+  - mkl=2018.0.1=h19d6760_4
+  - msgpack-python=0.5.1=py27h6bb024c_0
+  - ncurses=6.0=h9df7e31_2
+  - nose=1.3.7=py27heec2199_2
+  - numpy=1.9.3=py27h7e35acb_3
+  - olefile=0.44=py27h4bd3e3c_0
+  - openssl=1.0.2n=hb7f436b_0
+  - pandas=0.21.1=py27h38cdd7d_0
+  - pillow=4.2.1=py27_0
+  - pip=9.0.1=py27ha730c48_4
+  - python=2.7.11=0
+  - pytz=2017.3=py27h001bace_0
+  - readline=6.2=2
+  - reportlab=3.4.0=py27_0
+  - scikit-learn=0.16.1=np19py27_0
+  - scipy=1.0.0=py27hf5f0f52_0
+  - setuptools=38.4.0=py27_0
+  - six=1.11.0=py27h5f960f1_1
+  - sqlite=3.20.1=hb898158_2
+  - tk=8.5.18=0
+  - wheel=0.30.0=py27h2bc6bb2_1
+  - xz=5.2.3=h55aa19d_2
+  - zlib=1.2.8=3
+  - pip:
+    - backports.functools-lru-cache==1.4
+    - cycler==0.10.0
+    - matplotlib==2.1.1
+    - pyparsing==2.2.0
+    - pytabix==0.1
+    - subprocess32==3.2.7
+    - xlwt==1.3.0
+prefix: /pollard/home/kathleen/tools/anaconda3/envs/crispor2
+
