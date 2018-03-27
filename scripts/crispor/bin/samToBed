@@ -1,0 +1,87 @@
+#!/usr/bin/env python
+
+# convert bwa sam ouput to bed file that includes strand and NM tag and source seq id
+# similar to gawk 'BEGIN {OFS="\t"; FS="\t"} {strand="+"; if (and($2,16)==16) {strand="-"}; print $3,$4,$4+20,$1,strand}'
+# but will extend the end or start by pamlen
+
+# first arg is the PAM sequence
+# Cpf1 PAM TTTN is handled
+
+import sys, logging
+pam = sys.argv[1]
+isCpf1 = (pam in ["TTTN", "TTN"])
+pamLen = len(pam)
+#maxX1 = int(sys.argv[2])
+
+# example input:
+# t5    272 chrIII  12975327    0   20M *   0   0   CTACTCACCATAATCGAGCA    *   NM:i:5
+# t5  272 chrIII  6585026 0   20M *   0   0   CTACTCACCATAATCGAGCA    *   NM:i:5
+# t5  256 chrIV   4450550 0   20M *   0   0   TGCTCGATTATGGTGAGTAG    *   NM:i:5
+# s87+    0   chr8    35976504    0   20M *   0   0   TGCTTTTTACTTCACTGTGA    *   XT:A:R  NM:i:0  X0:i:2  X1:i:10622  XM:i:0  XO:i:0  XG:i:0  MD:Z:20
+
+import sys
+
+for line in sys.stdin:
+    if line.startswith("@"):
+        continue
+    l = line.rstrip("\n")
+    fs = l.split("\t")
+    qName, flag, rName, pos, mapq, cigar, rnext, pnext, tlen, seq, qual = fs[:11]
+    pos = int(pos)
+
+    # parse tags: skip line if too many matches and extract mismatch count
+    #skipLine = False
+    x1Score = "0"
+    tags = fs[11:]
+    for t in tags:
+        tagName, dType, val = t.split(":")
+        if tagName=="X1":
+            #skipLine = True
+            x1Score = val
+        if tagName=="NM":
+            mmCount = val
+
+    #if skipLine:
+        #continue
+
+    strand = "+"
+    if (int(flag) & 16) == 16:
+        #print "on neg strand"
+        strand = "-"
+
+    if cigar=="*":
+        continue
+
+    # ARH! SAM IS 1-BASED! !!!
+    startPos = pos-1
+    if cigar=="20M":
+        endPos = startPos+20
+    elif cigar=="21M":
+        endPos = startPos+21
+    elif cigar=="23M":
+        endPos = startPos+23
+    elif cigar=="19M":
+        endPos = startPos+19
+    else:
+        logging.error("cigar %s was not 20M, 21M, 23M or 19M, line %s" % (cigar, line))
+        assert(False) # cigar was not 20M or 19M or 23M?
+
+    if not isCpf1:
+        if strand=="+":
+            endPos += pamLen
+        else:
+            startPos -= pamLen
+    else:
+        if strand=="+":
+            startPos -= pamLen
+        else:
+            endPos += pamLen
+
+    if startPos < 0:
+        continue
+
+    nameInfo = [qName, rName, str(startPos), str(endPos), strand, mmCount, x1Score]
+    name = "|".join(nameInfo)
+
+    row = [rName, str(startPos), str(endPos), name, mmCount, strand]
+    print "\t".join(row)
