@@ -278,7 +278,7 @@ def main(args):
         exit()
 
     # load locus variants
-    gens = pd.read_hdf(gens)#.query('pos <= @stop and pos >= @start').head(5) # remove the stop once finished testing
+    gens = pd.read_hdf(gens)
 
     if gens.empty:
         print('No het variants in that region in this genome, exiting.')
