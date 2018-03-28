@@ -11,7 +11,9 @@ ExcisionFinder is a database and toolset for analysis and design of allele-speci
 * [Install ExcisionFinder and its requirements](https://github.com/keoughkath/ExcisionFinder/wiki/Install-ExcisionFinder-and-its-requirements)
 2. Reference database
 * [Query the database](https://github.com/keoughkath/ExcisionFinder/wiki/Tutorial:-Querying-ExcisionFinder-variant-annotations)
-3. Tutorials
+3. Tool descriptions
+* [Design allele-specific sgRNAs](https://github.com/keoughkath/ExcisionFinder/wiki/Features-of-gen_sgRNAs.py)
+4. Tutorials
 * [Design allele-specific sgRNAs](https://github.com/keoughkath/ExcisionFinder/wiki/Tutorial:-design-sgRNAs-in-an-individual-genome)
 * [Applying ExcisionFinder to your genome of choice](https://github.com/keoughkath/ExcisionFinder/wiki/Tutorial:-Applying-ExcisionFinder-to-your-genome-of-choice)
 
