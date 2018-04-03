@@ -849,10 +849,12 @@ def main(args):
         print('Finding allele-specific guides.')
         out = get_allele_spec_guides(args)
     out['guide_id'] = out.index
-    for i, row in out.iterrows():
-        if pd.isnull(row['rsID']):
-            out.ix[i,'rsID'] = ':'.join([row['chrom'],str(row['variant_position']),row['ref'], row['alt']])
-            out.ix[i,'AF'] = 0
+    
+    if args['<gene_vars>']:
+        for i, row in out.iterrows():
+            if pd.isnull(row['rsID']):
+                out.ix[i,'rsID'] = ':'.join([row['chrom'],str(row['variant_position']),row['ref'], row['alt']])
+                out.ix[i,'AF'] = 0
 
     out.to_csv(args['<out_dir>'] + 'guides.tsv', sep='\t', index=False)
     print('Done.')
