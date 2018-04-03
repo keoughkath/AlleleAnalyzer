@@ -219,16 +219,12 @@ def get_crispor_scores(out_df, outdir, ref_gen):
             f.write(seq)
     # get script dir
     scriptsdir = os.path.join(os.path.dirname(__file__), 'crispor')
-    run_name = os.path.join(scriptsdir, 'crispor.py')
+    run_name = os.path.join(scriptsdir, f'crispor.py --skipAlign --noEffScores -g {ref_gen} {ref_gen}')
     print('Running crispor.')
-    # command = f'source activate crispor; \
-    # # {run_name} -d --noEffScores --skipAlign -g {ref_gen} {ref_gen} ref_seqs_nosave.fa nosave_ref_scores.tsv;\
-    # # {run_name} -d --noEffScores --skipAlign -g {ref_gen} {ref_gen} alt_seqs_nosave.fa nosave_alt_scores.tsv;\
-    # source deactivate crispor'
     error_out = os.path.join(outdir, 'crispor_error.txt')
     command = f'source activate crispor; \
-    python {run_name} --skipAlign --noEffScores -g {ref_gen} {ref_gen} ref_seqs_nosave.fa nosave_ref_scores.tsv &> {error_out};\
-    python {run_name}  --skipAlign --noEffScores -g {ref_gen} {ref_gen} alt_seqs_nosave.fa nosave_alt_scores.tsv &> {error_out};\
+    python2 {run_name} ref_seqs_nosave.fa nosave_ref_scores.tsv &> {error_out};\
+    python2 {run_name} alt_seqs_nosave.fa nosave_alt_scores.tsv &> {error_out};\
     source deactivate crispor'
     subprocess.run(command, shell=True)
     print('crispor done')
@@ -844,13 +840,13 @@ def main(args):
                 guides_df = get_allele_spec_guides(args, spec_locus=f'{chrom}:{start}-{stop}')
                 guides_df['locus'] = row['name']
                 out_list.append(guides_df)
+        out = pd.concat(out_list)
     elif args['--hom']:
         print('Finding non-allele-specific guides.')
         out = get_guides(args)
     else:
         print('Finding allele-specific guides.')
         out = get_allele_spec_guides(args)
-    out = pd.concat(out_list)
     out['guide_id'] = out.index
     out.to_csv(args['<out_dir>'] + 'guides.tsv', sep='\t', index=False)
     print('Done.')
