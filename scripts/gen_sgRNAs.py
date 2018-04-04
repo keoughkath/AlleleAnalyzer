@@ -123,80 +123,57 @@ def get_range_downstream(pam_pos, pam_length, guide_length):
 def get_alt_seq(chrom, pam_start, var_pos, ref, alt, guide_length, ref_genome, strand='positive', var_type='near_pam'):
 
     if strand == 'positive':
-
         if var_type == 'near_pam':
-
             # reference sgRNA
-
             ref_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length - 1:pam_start - 1]
-
             # alt sgRNA 
-
             alt_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length - 1:var_pos - 1].lower() + alt.upper() + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start - 1].lower()
 
         elif var_type == 'destroys_pam':
 
             # reference sgRNA
-
             ref_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length - 1:pam_start - 1]
-
             # in this case, variant is destroying a PAM, rendering the alternate allele no longer a CRISPR site
             # therefore, for lack of a better solution, return empty alt_seq
-
             alt_seq = 'G' * guide_length
 
         elif var_type == 'makes_pam': # this might break with indels
 
             # reference sgRNA
-
             ref_seq = 'G' * guide_length
 
             # in this case, variant is destroying a PAM, rendering the alternate allele no longer a CRISPR site
             # therefore, for lack of a better solution, return empty alt_seq
-
             alt_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length - 1:pam_start - 1]
-
         return ref_seq.upper(), alt_seq.upper()
 
     elif strand == 'negative':
-
         if var_type == 'near_pam':
 
             # reference sgRNA
-
             ref_seq = ref_genome['chr'+str(chrom)][pam_start:pam_start + guide_length]
-
             # alt sgRNA 
-
             alt_seq = ref_genome['chr'+str(chrom)][pam_start:var_pos - 1].lower() + alt.upper() + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start + guide_length].lower()
 
         elif var_type == 'destroys_pam':
 
             # reference sgRNA
-
             ref_seq = ref_genome['chr'+str(chrom)][pam_start:pam_start + guide_length]
 
             # in this case, variant is destroying a PAM, rendering the alternate allele no longer a CRISPR site
             # therefore, for lack of a better solution, return empty alt_seq
-
             alt_seq = 'G' * guide_length
 
         elif var_type == 'makes_pam': # this might break with indels
 
             # reference sgRNA
-
             ref_seq = 'G' * guide_length
-
             alt_seq = ref_genome['chr'+str(chrom)][pam_start:pam_start + guide_length ]
-
         return ref_seq.upper(), alt_seq.upper()
-
     else:
 
         print ('Must specify strand, exiting at line 190.')
-
         exit()
-
 
 def make_rev_comp(s):
     """
@@ -255,36 +232,64 @@ def get_crispor_scores(out_df, outdir, ref_gen):
     outdf = outdf.merge(merge_df_alt, how='left', on='gRNA_alt')
     return(outdf)
 
-
-def get_allele_spec_guides(args, spec_locus=False):
-    # outputs dataframe with allele-specific guides
-
-    out_dir = args['<out_dir>']
-    pams_dir = args['<pams_dir>']
-    gens = args['<gens_file>']
-    targ_gens = args['<targ_file>']
-    if spec_locus:
-        locus = spec_locus
-    else:
-        locus = args['<locus>']
-    ref_genome = Fasta(args['<ref_fasta>'], as_raw=True)
+def parse_args(args, spec_locus=False):
+    """
+    Abstracing arg parser for both guide generating functions.
+    """
     global CAS_LIST
     CAS_LIST = list(args['<cas_types>'].split(','))
     guide_length = int(args['<guide_length>'])
-
+    ref = Fasta(args['<ref_fasta>'], as_raw=True)
     # error message if ref gen not specified for CRISPOR
     if args['--crispor'] and not args['<ref_gen>']:
         logging.info('Must specify ref_gen is option --crispor.')
         exit()
+    if spec_locus:
+        locus = spec_locus
+    else:
+        locus = args['<locus>']
+    return args['<out_dir>'], args['<pams_dir>'], args['<gens_file>'], args['<targ_file>'], locus, ref, CAS_LIST, guide_length
 
-    # load locus variants
-    gens = pd.read_hdf(gens)
-
+def check_hom_gens(gens):
+    """
+    Prints out messages if no variants are found. 
+    """
     if gens.empty and args['--hom']:
         print('No variants in that region in this genome, using PAMs from reference only.')
     elif gens.empty and not args['--hom']:
         print('No heterozygous variants in that region in this genome, exiting.')
-        exit()
+        exit(1)
+
+def verify_hdf_files(gen_file, targ_file, chrom, start, stop):
+    """
+    Compares the hdf files, and makes sure the hdf files contain 
+    variants in the specified range.
+    """
+    start, stop = int(start), int(stop)
+    comp = ['chrom', 'pos', 'ref', 'alt']
+    if not gen_file[comp].equals(targ_file[comp]):
+        print('ERROR: gen file and targ file variants do not match.')
+        exit(1)
+    #Check chr
+    if not all(c == chrom  for c in gen_file['chrom']):
+        print("ERROR: variants map to different chromosomes") # Should exit?
+    # Check vars
+    if not all(start < int(i) < stop  for i in gen_file['pos']):
+        print('Warning: Not all variants are between the defined ranges')
+    if not any(start < int(i) < stop  for i in gen_file['pos']):
+        print('ERROR: no variants in defined range.')
+        exit(1)
+
+
+def get_allele_spec_guides(args, spec_locus=False):
+    # outputs dataframe with allele-specific guides
+
+    out_dir, pams_dir, gens, targ_gens, locus, ref_genome, CAS_LIST, guide_length = parse_args(args, spec_locus)
+
+    # load locus variants
+    gens = pd.read_hdf(gens)
+
+    check_hom_gens(gens)
 
     chr_variants = set(gens.pos.tolist())
     if args['--hom']:
@@ -302,6 +307,7 @@ def get_allele_spec_guides(args, spec_locus=False):
     # load variant annotations
     targ_gens = pd.read_hdf(targ_gens)
 
+    verify_hdf_files(gens, targ_gens, chrom, start, stop)
     # initialize dictionary to save locations of PAM proximal variants
     pam_prox_vars = {}
 
@@ -530,7 +536,6 @@ def get_allele_spec_guides(args, spec_locus=False):
     out = out.query('variant_position_in_guide != 2')
     # add specificity scores if specified
     if args['--crispor']:
-        out.to_csv('test_blah.tsv', sep='\t')
         out = get_crispor_scores(out, out_dir, args['<ref_gen>'])
     # get rsID and AF info if provided
     if args['<gene_vars>']:
@@ -544,41 +549,20 @@ def get_allele_spec_guides(args, spec_locus=False):
 
 
 def get_guides(args, spec_locus=False):
-
     # outputs dataframe with individual-specific (not allele-specific) guides
 
-    out_dir = args['<out_dir>']
-    pams_dir = args['<pams_dir>']
-    gens = args['<gens_file>']
-    targ_gens = args['<targ_file>']
-    if spec_locus:
-        locus = spec_locus
-    else:
-        locus = args['<locus>']
-    ref_genome = Fasta(args['<ref_fasta>'], as_raw=True)
-    global CAS_LIST
-    CAS_LIST = list(args['<cas_types>'].split(','))
-    guide_length = int(args['<guide_length>'])
-
-    # error message if ref gen not specified for CRISPOR
-    if args['--crispor'] and not args['<ref_gen>']:
-        logging.info('Must specify ref_gen is option --crispor.')
-        exit()
-
+    out_dir, pams_dir, gens, targ_gens, locus, ref_genome, CAS_LIST, guide_length = parse_args(args, spec_locus)
+    
     # load locus variants
     gens = pd.read_hdf(gens)
-
+    
     # split into hets and homs
 
     gens['het'] = gens['genotype'].apply(het)
     het_gens = gens.query('het')
     hom_gens = gens.query('not het')
 
-    if gens.empty and args['--hom']:
-        print('No variants in that region in this genome, using PAMs from reference only.')
-    elif gens.empty and not args['--hom']:
-        print('No heterozygous variants in that region in this genome, exiting.')
-        exit()
+    check_hom_gens(gens)
 
     het_variants = set(het_gens.pos.tolist())
     hom_variants = set(hom_gens.pos.tolist())
@@ -597,6 +581,7 @@ def get_guides(args, spec_locus=False):
     targ_gens = pd.read_hdf(targ_gens)
     targ_gens['het'] = targ_gens['genotype'].apply(het)
 
+    verify_hdf_files(gens, targ_gens, chrom, start, stop)
     # initialize dictionary to save locations of PAM proximal variants
     pam_prox_vars = {}
 
