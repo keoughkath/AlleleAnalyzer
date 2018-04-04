@@ -6,3 +6,4 @@ pyfaidx>=0.5.1
 regex
 Biopython
 bcftools>=1.5
+pulp

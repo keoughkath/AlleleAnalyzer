@@ -71,9 +71,9 @@ def filter_hets(gens_df):
 	"""
 	filters for only heterozygous variants
 	"""
-	# print(gens_df.head(3))
-	gens_df['het'] = gens_df.apply(lambda row: het(row['genotype']), axis=1)
-	out = gens_df.query('het')[['chrom', 'pos', 'ref', 'alt', 'genotype']]
+	genotype_cols = list(set(gens_df.columns).difference(set(['chrom', 'pos', 'ref', 'alt'])))
+	gens_df['het'] = gens_df.apply(lambda row: any(het(row[col]) for col in genotype_cols), axis=1)
+	out = gens_df.query('het')[['chrom', 'pos', 'ref', 'alt']+genotype_cols]
 	return out
 
 
@@ -166,6 +166,12 @@ def main(args):
 		start = args['<locus>'].split(':')[1].split('-')[0]
 		stop = args['<locus>'].split(':')[1].split('-')[1]
 
+		samples = str(subprocess.Popen(f'bcftools query -l {args["<vcf_file>"]}', shell=True, stdout=subprocess.PIPE).communicate()[0].decode("utf-8")).split('\n')
+		samples = list(filter(None,samples))
+		n_samples = len(samples)
+
+		print(f'There are {n_samples} samples in the provided VCF.')
+
 		bcl_v=f"bcftools view -r {chrom}:{str(start)}-{str(stop)} {args['<vcf_file>']}"
 		
 		# Pipe for bcftools
@@ -183,9 +189,14 @@ def main(args):
 			f.write(raw_dat)
 			f.close()
 
+		genotype_list = []
+		for sample in samples:
+			genotype_list.append(f'genotype_{sample}')
+
 		# Append fix_chr_tables.py
-		vars = pd.read_csv(temp_file_name, sep='\t', header=None, names=['chrom', 'pos', 'ref', 'alt', 'genotype'],
-			usecols=['chrom', 'pos', 'ref', 'alt', 'genotype'])
+		name_list = ['chrom', 'pos', 'ref', 'alt'] + genotype_list
+		vars = pd.read_csv(temp_file_name, sep='\t', header=None, names=name_list,
+			usecols=name_list)
 
 		if vars.empty and args['-f']:
 			print('No variants in this region for this individual. Exiting.')
@@ -197,6 +208,7 @@ def main(args):
 		if args['-f']:
 			vars_fixed = vars.applymap(fix_multiallelics)
 		else:
+			# gets rid of variants where not at least one ind has a het variant
 			vars_fixed = filter_hets(vars.applymap(fix_multiallelics))
 
 		if args['<name>']:

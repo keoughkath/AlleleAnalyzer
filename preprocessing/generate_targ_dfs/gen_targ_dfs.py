@@ -359,6 +359,13 @@ def main(args):
             spec_pam_prox_vars = pam_prox_vars[cas]
             chrdf[f'var_near_{cas}'] = chrdf['pos'].isin(spec_pam_prox_vars).astype(int)
 
+        cas_cols = []
+        for cas in cas_list:
+            prelim_cols = [w.replace('cas',cas) for w in ['makes_cas','breaks_cas','var_near_cas']]
+            cas_cols.extend(prelim_cols)
+        keepcols = ['chrom','pos','ref','alt'] + cas_cols 
+        chrdf = chrdf[keepcols]
+
         chrdf.to_hdf(f'{out_dir}_targ.hdf5', 'all', mode='w', format='table', data_columns=True, complib='blosc')
 
 
