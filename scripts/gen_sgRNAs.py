@@ -204,7 +204,6 @@ def make_rev_comp(s):
     """
     return s[::-1].translate(s[::-1].maketrans('ACGT', 'TGCA'))
 
-
 def get_crispor_scores(out_df, outdir, ref_gen):
     guide_seqs_ref = ['>ref_guide_seqs\n']
     guide_seqs_alt = ['>alt_guide_seqs\n']
@@ -221,7 +220,8 @@ def get_crispor_scores(out_df, outdir, ref_gen):
     scriptsdir = os.path.join(os.path.dirname(__file__), 'crispor')
     run_name = os.path.join(scriptsdir, f'crispor.py --skipAlign --noEffScores -g {ref_gen} {ref_gen}')
     print('Running crispor.')
-    error_out = os.path.join(outdir, 'crispor_error.txt')
+    #error_out = os.path.join(outdir, 'crispor_error.txt')
+    error_out = os.path.join(os.path.dirname(outdir), 'crispor_error.txt')
     command = f'source activate crispor; \
     python2 {run_name} ref_seqs_nosave.fa nosave_ref_scores.tsv &> {error_out};\
     python2 {run_name} alt_seqs_nosave.fa nosave_alt_scores.tsv &> {error_out};\
@@ -537,7 +537,8 @@ def get_allele_spec_guides(args, spec_locus=False):
         gene_vars = pd.read_hdf(args['<gene_vars>'])
         if not str(gene_vars['chrom'].tolist()[0]).startswith('chr'):
             gene_vars['chrom'] = list(map(lambda x: 'chr' + str(x), gene_vars['chrom']))
-        gene_vars['variant_position'] = gene_vars['pos']
+        gene_vars = gene_vars.rename(index=str, columns={"pos": "variant_position"})
+
         out = out.merge(gene_vars, how='left', on=['chrom','variant_position','ref','alt'])
     return out
 
@@ -848,6 +849,13 @@ def main(args):
         print('Finding allele-specific guides.')
         out = get_allele_spec_guides(args)
     out['guide_id'] = out.index
+    
+    if args['<gene_vars>']:
+        for i, row in out.iterrows():
+            if pd.isnull(row['rsID']):
+                out.ix[i,'rsID'] = ':'.join([row['chrom'],str(row['variant_position']),row['ref'], row['alt']])
+                out.ix[i,'AF'] = 0
+
     out.to_csv(args['<out_dir>'] + 'guides.tsv', sep='\t', index=False)
     print('Done.')
 
