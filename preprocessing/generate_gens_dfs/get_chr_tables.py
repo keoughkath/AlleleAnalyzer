@@ -12,7 +12,7 @@ Usage:
 	get_chr_tables.py <vcf_file> <locus> <outdir> <name> [-f] [--bed]
 
 Arguments:
-	vcf_file           The sample vcf file, separated by chromosome. 
+	vcf_file           The sample vcf file, separated by chromosome. BCF also supported. 
 	locus			   Locus from which to pull variants, in format chromosome:start-stop, or a BED file, 
 					   in which case you must specify --bed
 	outdir             Directory in which to save the output files.
@@ -21,6 +21,8 @@ Arguments:
 	                   Therefore, downstream this will generate both allele-specific and non-
 	                   allele-specific sgRNAs.
 	--bed              Indicates that a BED file is being used in place of a locus.
+	--chrom            Run on entire chromosome, e.g. for 1KGP analysis. If specified, just put the chromosome
+	                   in for <locus>.
 """
 import pandas as pd
 from docopt import docopt
@@ -156,6 +158,66 @@ def main(args):
 	elif args['<locus>'].endswith('.bed') or args['<locus>'].endswith('.BED'):
 		print('Must specify --bed if inputting a BED file. Exiting.')
 		exit()
+	elif args['--chrom']:
+		print('Running get_chr_tables.py on entire chromosome. This might take awhile.')
+		# get locus info
+		# check whether chromosome in VCF file includes "chr" in chromosome
+		vcf_chrom = str(subprocess.Popen(f'gzcat {vcf_in} | tail -1 | cut -f1', shell=True))
+		chrom = norm_chr(args['<locus>'])
+
+		samples = str(subprocess.Popen(f'bcftools query -l {args["<vcf_file>"]}', shell=True, stdout=subprocess.PIPE).communicate()[0].decode("utf-8")).split('\n')
+		samples = list(filter(None,samples))
+		n_samples = len(samples)
+
+		print(f'There are {n_samples} samples in the provided VCF.')
+
+		bcl_v=f"bcftools view -r {chrom} {args['<vcf_file>']}"
+		
+		# Pipe for bcftools
+		bcl_view = subprocess.Popen(bcl_v,shell=True, stdout=subprocess.PIPE)
+		bcl_norm = subprocess.Popen("bcftools norm -m -",shell=True, stdin=bcl_view.stdout, stdout=subprocess.PIPE)
+		bcl_query = subprocess.Popen("bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%TGT]\n'",shell=True,
+		 stdin=bcl_norm.stdout, stdout=subprocess.PIPE)
+		bcl_query.wait() # Don't do anything else untill bcl_query is done running.
+
+		# output  
+		raw_dat = bcl_query.communicate()[0].decode("utf-8")
+
+		temp_file_name=f"{args['<outdir>']}/{str(chrom)}_prechrtable.txt"
+		with open(temp_file_name, 'w') as f:
+			f.write(raw_dat)
+			f.close()
+
+		genotype_list = []
+		for sample in samples:
+			genotype_list.append(f'{sample}')
+
+		# Append fix_chr_tables.py
+		name_list = ['chrom', 'pos', 'ref', 'alt'] + genotype_list
+		vars = pd.read_csv(temp_file_name, sep='\t', header=None, names=name_list,
+			usecols=name_list)
+
+		if vars.empty and args['-f']:
+			print('No variants in this region for this individual. Exiting.')
+			exit()
+		elif vars.empty and not args['-f']:
+			print('No heterozygous variants in this region for this individual. Exiting.')
+			exit()
+
+		if args['-f']:
+			vars_fixed = vars.applymap(fix_multiallelics)
+		else:
+			# gets rid of variants where not at least one ind has a het variant
+			vars_fixed = filter_hets(vars.applymap(fix_multiallelics))
+
+		if args['<name>']:
+			outname = f"{args['<name>']}.hdf5"
+		else:
+			outname = f'chr{chrom}_gens.hdf5'
+
+		vars_fixed.to_hdf(os.path.join(args['<outdir>'], outname), 'all', format='t', data_columns=True, complib='blosc')
+
+		os.remove(temp_file_name)
 	else:
 		print('Running single locus')
 
@@ -191,7 +253,7 @@ def main(args):
 
 		genotype_list = []
 		for sample in samples:
-			genotype_list.append(f'genotype_{sample}')
+			genotype_list.append(f'{sample}')
 
 		# Append fix_chr_tables.py
 		name_list = ['chrom', 'pos', 'ref', 'alt'] + genotype_list
