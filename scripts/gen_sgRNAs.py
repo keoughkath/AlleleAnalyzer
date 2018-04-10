@@ -308,24 +308,12 @@ def get_allele_spec_guides(args, spec_locus=False):
     targ_gens = pd.read_hdf(targ_gens)
 
     verify_hdf_files(gens, targ_gens, chrom, start, stop)
-    # initialize dictionary to save locations of PAM proximal variants
-    pam_prox_vars = {}
 
-    # initialize lists that will eventually become the output dataframe
-    starts = []
-    stops = []
-    refs = []
-    alts = []
-    grna_refs = []
-    grna_alts = []
-    variant_pos_in_guides = []
-    cas_types = []
-    chroms = []
-    variants_positions = []
-    strands = []
-    pam_pos = []
 
-        # get variants within sgRNA region for 3 prime PAMs (guide_length bp upstream of for pos and vice versa)
+    grna_df = pd.DataFrame(columns=['chrom','start','stop','ref','alt','variant_position_in_guide','gRNA_ref','gRNA_alt',
+    'variant_position','strand','cas_type'])
+    ind = 0
+    # get variants within sgRNA region for 3 prime PAMs (guide_length bp upstream of for pos and vice versa)
 
     for cas in CAS_LIST:
             pam_for_pos = np.load(os.path.join(pams_dir, f'chr{chrom}_{cas}_pam_sites_for.npy')).tolist()
@@ -338,6 +326,7 @@ def get_allele_spec_guides(args, spec_locus=False):
                     pam_length = crisprtools.tpp_for[cas][1]
                 else:
                     print('Something is wrong, exiting.') # change this to actual exception
+                    exit(0)
                 cas_prox_vars = []
                 vars_near_pams = targ_gens.query(f'var_near_{cas} == 1')
                 vars_make_pam = targ_gens.query(f'makes_{cas} == 1')
@@ -348,47 +337,26 @@ def get_allele_spec_guides(args, spec_locus=False):
                     proximal_sites_for = list(range(row['pos'], row['pos']+guide_length+1))
                     nearby_for_pams = list(set(proximal_sites_for) & set(pam_for_pos))
                     for pam_site in nearby_for_pams:
-                        start = pam_site - guide_length - 1
-                        starts.append(start)
-                        stops.append(pam_site - 1)
-                        ref_allele = row['ref']
-                        refs.append(ref_allele)
-                        alt_allele = row['alt']
-                        alts.append(alt_allele)
-                        grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome, var_type='near_pam')
-                        grna_refs.append(grna_ref_seq)
-                        grna_alts.append(grna_alt_seq)
-                        var_pos = pam_site - var - 1 + pam_length
-                        variant_pos_in_guides.append(var_pos)
-                        cas_types.append(cas)
-                        chroms.append(chrom)
-                        variants_positions.append(var)
-                        strands.append('+')
-                        pam_pos.append(pam_site)
+
+                        grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, row['ref'], row['alt'], guide_length, ref_genome, var_type='near_pam')
+
+                        grna_df.loc[ind] = ['chr'+str(chrom), (pam_site - guide_length - 1), (pam_site - 1), row['ref'], row['alt'],
+                        (pam_site - var - 1 + pam_length), grna_ref_seq, grna_alt_seq, var, '+', cas]
+                        ind += 1
+
                     proximal_sites_rev = list(range(row['pos']-guide_length,row['pos']))
                     nearby_rev_pams = list(set(proximal_sites_rev) & set(pam_rev_pos))
                     for pam_site in nearby_rev_pams:
-                        var = row['pos']
-                        start = pam_site 
-                        starts.append(start)
-                        stops.append(pam_site + guide_length)
-                        ref_allele = row['ref']
-                        refs.append(ref_allele)
-                        alt_allele = row['alt']
-                        alts.append(alt_allele)
-                        grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome, 
+
+                        grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, row['pos'], row['ref'], row['alt'], guide_length, ref_genome, 
                             strand='negative', var_type='near_pam')
                         if not args['-c']:
                             grna_ref_seq, grna_alt_seq = make_rev_comp(grna_ref_seq), make_rev_comp(grna_alt_seq)
-                        grna_refs.append(grna_ref_seq)
-                        grna_alts.append(grna_alt_seq)
-                        var_pos = var - pam_site + pam_length - 1
-                        variant_pos_in_guides.append(var_pos)
-                        cas_types.append(cas)
-                        chroms.append(chrom)
-                        variants_positions.append(var)
-                        strands.append('-')
-                        pam_pos.append(pam_site)
+
+                        grna_df.loc[ind] = ['chr'+str(chrom), pam_site, pam_site + guide_length, row['ref'], row['alt'],
+                        var - pam_site + pam_length - 1, grna_ref_seq, grna_alt_seq, var, '-', cas]
+                        ind += 1
+
                 for index, row in vars_destroy_pam.iterrows():
                     var = row['pos']
                     ref = row['ref']
@@ -415,22 +383,12 @@ def get_allele_spec_guides(args, spec_locus=False):
                         alt_allele = alt
                         grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome, 
                             var_type='destroys_pam')
-                        start = pam_site - guide_length
-                        starts.append(start)
-                        stops.append(pam_site)
-                        ref_allele = row['ref']
-                        refs.append(ref_allele)
-                        alt_allele = row['alt']
-                        alts.append(alt_allele)
-                        grna_refs.append(grna_ref_seq)
-                        grna_alts.append(grna_alt_seq)
-                        var_pos = pam_site + pam_length - var
-                        variant_pos_in_guides.append(var_pos)
-                        cas_types.append(cas)
-                        chroms.append(chrom)
-                        variants_positions.append(var)
-                        strands.append('+')
+
+                        grna_df.loc[ind] = ['chr'+str(chrom), (pam_site - guide_length), (pam_site), row['ref'], row['alt'],
+                        (pam_site + pam_length - var), grna_ref_seq, grna_alt_seq, var, '+', cas]
+                        ind += 1
                         pam_pos.append(pam_site)
+
                     for pam in lost_pams_rev:
                         pam_site = pam + var - 11
                         ref_allele = ref
@@ -439,24 +397,12 @@ def get_allele_spec_guides(args, spec_locus=False):
                             strand='negative', var_type='destroys_pam')
                         if not args['-c']:
                             grna_ref_seq, grna_alt_seq = make_rev_comp(grna_ref_seq), make_rev_comp(grna_alt_seq)
-                        start = pam_site
-                        starts.append(start)
-                        stop = pam_site + guide_length
-                        stops.append(stop)
-                        refs.append(ref_allele)
-                        alts.append(alt_allele)
-                        grna_refs.append(grna_ref_seq)
-                        grna_alts.append(grna_alt_seq)
-                        var_pos = var - pam_site + pam_length - 1
-                        variant_pos_in_guides.append(var_pos)
-                        cas_types.append(cas)
-                        chroms.append(chrom)
-                        variants_positions.append(var)
-                        strands.append('-')
-                        pam_pos.append(pam_site)
+
+                        grna_df.loc[ind] = ['chr'+str(chrom), (pam_site), (pam_site + guide_length), ref_allele, alt_allele,
+                        (var - pam_site + pam_length - 1), grna_ref_seq, grna_alt_seq, var, '-', cas]
+                        ind += 1
 
                 for index, row in vars_make_pam.iterrows():
-
                     var = row['pos']
                     ref = row['ref']
                     alt = row['alt']
@@ -483,22 +429,11 @@ def get_allele_spec_guides(args, spec_locus=False):
                         alt_allele = alt
                         grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome, 
                             var_type='makes_pam')
-                        start = pam_site - guide_length
-                        starts.append(start)
-                        stops.append(pam_site)
-                        ref_allele = row['ref']
-                        refs.append(ref_allele)
-                        alt_allele = row['alt']
-                        alts.append(alt_allele)
-                        grna_refs.append(grna_ref_seq)
-                        grna_alts.append(grna_alt_seq)
-                        var_pos = pam_site + pam_length - var
-                        variant_pos_in_guides.append(var_pos)
-                        cas_types.append(cas)
-                        chroms.append(chrom)
-                        variants_positions.append(var)
-                        strands.append('+')
-                        pam_pos.append(pam_site)
+
+                        grna_df.loc[ind] = ['chr'+str(chrom), (pam_site - guide_length), (pam_site), row['ref'], row['alt'],
+                        (pam_site + pam_length - var), grna_ref_seq, grna_alt_seq, var, '+', cas]
+                        ind += 1
+
                     for pam in made_pams_rev:
                         pam_site = var - 11 + pam
                         ref_allele = ref
@@ -507,33 +442,16 @@ def get_allele_spec_guides(args, spec_locus=False):
                             strand='negative', var_type='makes_pam')
                         if not args['-c']:
                             grna_ref_seq, grna_alt_seq = make_rev_comp(grna_ref_seq), make_rev_comp(grna_alt_seq)
-                        start = pam_site
-                        starts.append(start)
-                        stop = pam_site + guide_length
-                        stops.append(stop)
-                        refs.append(ref_allele)
-                        alts.append(alt_allele)
-                        grna_refs.append(grna_ref_seq)
-                        grna_alts.append(grna_alt_seq)
-                        var_pos = var - pam_site + pam_length
-                        variant_pos_in_guides.append(var_pos)
-                        cas_types.append(cas)
-                        chroms.append(chrom)
-                        variants_positions.append(var)
-                        strands.append('-')
-                        pam_pos.append(pam_site)
+
+                        grna_df.loc[ind] = ['chr'+str(chrom), (pam_site), (pam_site + guide_length), ref_allele, alt_allele,
+                        (var - pam_site + pam_length - 1), grna_ref_seq, grna_alt_seq, var, '-', cas]
+                        ind += 1
 
                
 
-    chroms = list(map(lambda x: 'chr'+str(x),chroms))
+    grna_df = grna_df.query('variant_position_in_guide != 2')
 
-    out = pd.DataFrame({'chrom':chroms,'start':starts, 'stop':stops, 'ref':refs, 'alt':alts,
-        'cas_type':cas_types, 'gRNA_ref':grna_refs, 'gRNA_alt':grna_alts, 'variant_position_in_guide':variant_pos_in_guides,
-        'variant_position':variants_positions, 'strand': strands})
 
-    out = out[['chrom','start','stop','ref','alt','variant_position_in_guide','gRNA_ref','gRNA_alt',
-    'variant_position','strand','cas_type']]
-    out = out.query('variant_position_in_guide != 2')
     # add specificity scores if specified
     if args['--crispor']:
         out = get_crispor_scores(out, out_dir, args['<ref_gen>'])
@@ -545,7 +463,7 @@ def get_allele_spec_guides(args, spec_locus=False):
         gene_vars = gene_vars.rename(index=str, columns={"pos": "variant_position"})
 
         out = out.merge(gene_vars, how='left', on=['chrom','variant_position','ref','alt'])
-    return out
+    return grna_df
 
 
 def get_guides(args, spec_locus=False):
@@ -794,7 +712,7 @@ def get_guides(args, spec_locus=False):
 
 def main(args):
     
-    print(args)
+    #print(args)
 
     if args['--multi']:
         print('Running as multi-locus, assumes BED file given.')
@@ -833,7 +751,8 @@ def main(args):
     else:
         print('Finding allele-specific guides.')
         out = get_allele_spec_guides(args)
-    out['guide_id'] = out.index
+    
+    out['guide_id'] = 'guide' + out.index.astype(str)
     
     if args['<gene_vars>']:
         for i, row in out.iterrows():
