@@ -387,7 +387,6 @@ def get_allele_spec_guides(args, spec_locus=False):
                         grna_df.loc[ind] = ['chr'+str(chrom), (pam_site - guide_length), (pam_site), row['ref'], row['alt'],
                         (pam_site + pam_length - var), grna_ref_seq, grna_alt_seq, var, '+', cas]
                         ind += 1
-                        pam_pos.append(pam_site)
 
                     for pam in lost_pams_rev:
                         pam_site = pam + var - 11
