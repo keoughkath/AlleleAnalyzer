@@ -32,7 +32,7 @@ class Cas(object):
 		self.primeness = primeness
 
 	def __str__(self):
-		return f"Cas Object {self.name},{self.primeness} with PAM:{self.forwardPam}"
+		return f"<Cas Object {self.name}, with {self.primeness} PAM:{self.forwardPam}>"
 
 
 	def forwardPam_regex(self):
@@ -40,14 +40,12 @@ class Cas(object):
 		Returns the regex of the forward PAM. 
 		"""
 		return ''.join([IUPAC[c] for c in self.forwardPam])
-
 	def reversePam_regex(self):
 		"""
 		Returns the regex of the reverse PAM. 
 		"""
 		pam = self.getReversePam()
 		return ''.join([IUPAC[c] for c in pam])
-
 	def getReversePam(self):
 		"""
 		Returns the reverse PAM of the input.
@@ -59,7 +57,6 @@ class Cas(object):
 	@property
 	def name(self):
 		return self._name
-
 	@name.setter
 	def name(self, value):
 		self._name = value
@@ -67,7 +64,6 @@ class Cas(object):
 	@property
 	def forwardPam(self):
 		return self._forwardPam
-
 	@forwardPam.setter
 	def forwardPam(self, value):
 		value = value.upper()
@@ -82,7 +78,6 @@ class Cas(object):
 	@property
 	def primeness(self):
 		return self._primeness
-
 	@primeness.setter
 	def primeness(self, value):
 		if value not in ["3'","5'"]:
@@ -104,11 +99,20 @@ def get_cas_enzyme(name, cas_file=CAS_PATH):
 				return Cas(*cas)
 	raise ValueError(f"Cas not found in {cas_file}: {name}") 
 
+def get_cas_list(cas_file=CAS_PATH):
+	"""
+	Return list of all Cas9 names.
+	"""
+	cas_list = []
+	for line in open(cas_file):
+		if not line.startswith("#"):
+			cas_list.append(line.split('\t')[0])
+	return cas_list 
 
 ## Below: for testing, will be removed in next pull or by 4/15/2018
 
 # test1 = get_cas_enzyme('SpCas9')
-# print(test1.name)
+# print(test1)
 # print(test1.forwardPam)
 # print(test1.forwardPam_regex())
 # print(test1.reversePam)
@@ -116,3 +120,5 @@ def get_cas_enzyme(name, cas_file=CAS_PATH):
 # print(test1.primeness)
 
 # print(len(test1.forwardPam))
+
+# print(get_cas_list())

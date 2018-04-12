@@ -1,7 +1,12 @@
 ## Cas9 object info, stored here. To add new Cas enzymes, append it to 
-## the end of this list, with the following attributes:
-##	<CAS_NAME>	<FORWARD_PAM>	<5'_OR_3'>
-#
+## the end of this list, with the following attributes, seperated by tabs:
+##	<CAS_NAME>	<PAM_SEQ>	<5'_OR_3'_PAM>
+## Any line with a leading hash will not be read.
+## PAM sequences are assumed to be the 5'->3' orientation.
+## 5' or 3' PAMs refer to where the PAM is relative to the sgRNA sequence.
+## 5' PAM: 5'-PAM:sgRNA-3'
+## 3' PAM: 5'-sgRNA:PAM-3'
+#####
 # SpCas9, SpCas9-HF1, eSpCas1.1
 SpCas9	NGG	3'
 # SpCas9 VRER variant
