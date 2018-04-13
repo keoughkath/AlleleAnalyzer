@@ -13,7 +13,7 @@ Arguments:
     cas                 Types of cas, comma-separated.
     pams_dir            Directory where pam locations in ref_genome are located. 
     ref_genome_fasta          Fasta file for ref_genome 
-    out_dir             Directory in which to save the output files.
+    out_dir             File and directory in which to save the output files.
 Options:
     --multi             Run for multiple loci simultaneously.
 
@@ -28,7 +28,7 @@ import os
 from pyfaidx import Fasta
 import regex
 
-__version__ = '0.0.0'
+__version__ = '0.0.1'
 
 # 3 and 5 prime cas lists
 
@@ -227,7 +227,7 @@ def main(args):
     global cas_list
     cas_list = list(args['<cas>'].split(','))
 
-    os.makedirs(out_dir, exist_ok=True)
+    os.makedirs(os.path.dirname(out_dir), exist_ok=True)
 
     if args['--multi']:
 
@@ -366,7 +366,7 @@ def main(args):
         keepcols = ['chrom','pos','ref','alt'] + cas_cols 
         chrdf = chrdf[keepcols]
 
-        chrdf.to_hdf(f'{out_dir}_targ.hdf5', 'all', mode='w', format='table', data_columns=True, complib='blosc')
+        chrdf.to_hdf(f'{out_dir}.hdf5', 'all', mode='w', format='table', data_columns=True, complib='blosc')
 
 
 if __name__ == '__main__':
