@@ -9,17 +9,16 @@ Written in Python v 3.6.1.
 Kathleen Keough and Michael Olvera 2017-2018.
 
 Usage:
-	get_chr_tables.py <vcf_file> <locus> <outdir> <name> [-f] [--bed]
+	get_chr_tables.py <vcf_file> <locus> <out> [-f] [--bed]
 
 Arguments:
 	vcf_file           The sample vcf file, separated by chromosome. BCF also supported. 
 	locus			   Locus from which to pull variants, in format chromosome:start-stop, or a BED file, 
 					   in which case you must specify --bed
-	outdir             Directory in which to save the output files.
-	name			   The name for the output file.
+	out				   The name for the output file and directory in which to save the output files.
 	-f                 If this option is specified, keeps homozygous variants in output file. 
-	                   Therefore, downstream this will generate both allele-specific and non-
-	                   allele-specific sgRNAs.
+					   Therefore, downstream this will generate both allele-specific and non-
+					   allele-specific sgRNAs.
 	--bed              Indicates that a BED file is being used in place of a locus.
 	--chrom            Run on entire chromosome, e.g. for 1KGP analysis. If specified, just put the chromosome
 	                   in for <locus>.
@@ -29,7 +28,7 @@ from docopt import docopt
 import subprocess, os, sys
 import regex as re
 
-__version__='0.0.0'
+__version__='0.0.2'
 
 REQUIRED_BCFTOOLS_VER = 1.5
 
@@ -65,6 +64,8 @@ def fix_multiallelics(cell):
 
 
 def het(genotype):
+	# if genotype == '.':
+	# 	return False
 	gen1, gen2 = re.split('/|\|',genotype)
 	return gen1 != gen2
 
@@ -78,11 +79,19 @@ def filter_hets(gens_df):
 	out = gens_df.query('het')[['chrom', 'pos', 'ref', 'alt']+genotype_cols]
 	return out
 
+def fix_natural_language(name):
+	"""
+	Fixes NaturalNameWarning given by trying to write an hdf5 column name
+	"""
+	for ch in r"\`*{}[]()>#+-.!$":
+		if ch in name:
+			name = name.replace(ch,"_")
+	return name
 
 def main(args):
 	print(args)
 	# Make the outdir
-	os.makedirs(args['<outdir>'], exist_ok=True)
+	os.makedirs(os.path.dirname(args['<out>']), exist_ok=True)
 	vcf_in = args['<vcf_file>']
 	# Check if bcftools is installed, and then check version number
 	check_bcftools()
@@ -92,7 +101,7 @@ def main(args):
 		bed_file = args['<locus>']
 		print(f'Analyzing BED file {bed_file}')
 		bed_df = pd.read_csv(bed_file, sep='\t', header=0, names=['chr','start','stop','locus'])
-		hdf_out = pd.HDFStore(os.path.join(args['<outdir>'],args['<name>'] + '.h5'))
+		hdf_out = pd.HDFStore(args['<out>'] + '.h5')
 		for index, row in bed_df.iterrows():
 			
 			# check whether chromosome in VCF file includes "chr" in chromosome
@@ -111,7 +120,7 @@ def main(args):
 			# removes or adds "chr" based on analyzed VCF
 			chr_name = norm_chr(chrom, chrstart)
 
-			bcl_v=f"bcftools view -r {chr_name}:{str(start)}-{str(stop)} {args['<vcf_file>']}"
+			bcl_v=f"bcftools view -g ^miss -r {chr_name}:{str(start)}-{str(stop)} {args['<vcf_file>']}"
 			
 			# Pipe for bcftools
 			bcl_view = subprocess.Popen(bcl_v,shell=True, stdout=subprocess.PIPE)
@@ -123,7 +132,7 @@ def main(args):
 			# output  
 			raw_dat = bcl_query.communicate()[0].decode("utf-8")
 
-			temp_file_name=f"{args['<outdir>']}/{str(chrom)}_prechrtable.txt"
+			temp_file_name=f"{os.path.dirname(args['<out>'])}/{str(chrom)}_prechrtable.txt"
 			with open(temp_file_name, 'w') as f:
 				f.write(raw_dat)
 				f.close()
@@ -224,17 +233,18 @@ def main(args):
 		# get locus info
 		# check whether chromosome in VCF file includes "chr" in chromosome
 		vcf_chrom = str(subprocess.Popen(f'gzcat {vcf_in} | tail -1 | cut -f1', shell=True))
-		chrom = norm_chr(args['<locus>'].split(':')[0],vcf_chrom.startswith('chr'))
-		start = args['<locus>'].split(':')[1].split('-')[0]
-		stop = args['<locus>'].split(':')[1].split('-')[1]
+		locus = norm_chr(args['<locus>'], vcf_chrom.startswith('chr'))
+		chrom = locus.split(':')[0]
 
 		samples = str(subprocess.Popen(f'bcftools query -l {args["<vcf_file>"]}', shell=True, stdout=subprocess.PIPE).communicate()[0].decode("utf-8")).split('\n')
 		samples = list(filter(None,samples))
+		samples = [ fix_natural_language(name) for name in samples ]
+
 		n_samples = len(samples)
 
 		print(f'There are {n_samples} samples in the provided VCF.')
 
-		bcl_v=f"bcftools view -r {chrom}:{str(start)}-{str(stop)} {args['<vcf_file>']}"
+		bcl_v=f"bcftools view -r {locus} {args['<vcf_file>']}"
 		
 		# Pipe for bcftools
 		bcl_view = subprocess.Popen(bcl_v,shell=True, stdout=subprocess.PIPE)
@@ -246,7 +256,7 @@ def main(args):
 		# output  
 		raw_dat = bcl_query.communicate()[0].decode("utf-8")
 
-		temp_file_name=f"{args['<outdir>']}/{str(chrom)}_prechrtable.txt"
+		temp_file_name=f"{os.path.dirname(args['<out>'])}/{str(chrom)}_prechrtable.txt"
 		with open(temp_file_name, 'w') as f:
 			f.write(raw_dat)
 			f.close()
@@ -273,16 +283,15 @@ def main(args):
 			# gets rid of variants where not at least one ind has a het variant
 			vars_fixed = filter_hets(vars.applymap(fix_multiallelics))
 
-		if args['<name>']:
-			outname = f"{args['<name>']}.hdf5"
-		else:
-			outname = f'chr{chrom}_gens.hdf5'
+		outname = f"{args['<out>']}.hdf5"
 
-		vars_fixed.to_hdf(os.path.join(args['<outdir>'], outname), 'all', format='t', data_columns=True, complib='blosc')
+
+
+		vars_fixed.to_hdf(outname, 'all', format='t', data_columns=True, complib='blosc')
 
 		os.remove(temp_file_name)
 
 
 if __name__ == '__main__':
-	arguments = docopt(__doc__, version='0.1')
+	arguments = docopt(__doc__, version='0.2')
 	main(arguments)
