@@ -34,9 +34,9 @@ __version__='0.0.0'
 REQUIRED_BCFTOOLS_VER = 1.5
 
 def norm_chr(chrom_str, vcf_chrom):
-	if vcf_chrom:
+	if not vcf_chrom:
 		return chrom_str.replace('chr','')
-	elif not vcf_chrom:
+	elif vcf_chrom:
 		return('chr' + chrom_str)
 
 def check_bcftools():

@@ -13,6 +13,7 @@ Arguments:
     filt            minimum % (integer) of included individuals that must share the outputted site pairs (0 for set cover)
     annots          gene annotations file
     cas             cas variety
+    hap_targs       outputted by ExcisionFinder
     out_dir         prefix/directory to save the file
 """
 import pandas as pd
