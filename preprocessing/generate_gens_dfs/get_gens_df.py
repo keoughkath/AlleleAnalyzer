@@ -6,16 +6,17 @@ get_chr_tables.py generates a table (tsv file) listing all variants in a defined
 individual (based on input VCF file). This basically reformats genotypes from VCF for easier 
 processing later when designing sgRNAs.
 Written in Python v 3.6.1.
-Kathleen Keough and Michael Olvera 2017-2018.
+Kathleen Keough et al 2017-2018.
 
 Usage:
-	get_chr_tables.py <vcf_file> <locus> <out> [-f] [--bed]
+	get_chr_tables.py <vcf_file> <locus> <out> [-f] [--bed] [--chrom]
 
 Arguments:
 	vcf_file           The sample vcf file, separated by chromosome. BCF also supported. 
 	locus			   Locus from which to pull variants, in format chromosome:start-stop, or a BED file, 
 					   in which case you must specify --bed
 	out				   The name for the output file and directory in which to save the output files.
+Options:
 	-f                 If this option is specified, keeps homozygous variants in output file. 
 					   Therefore, downstream this will generate both allele-specific and non-
 					   allele-specific sgRNAs.
@@ -89,10 +90,10 @@ def fix_natural_language(name):
 	return name
 
 def main(args):
+
 	print(args)
-	# Make the outdir
-	os.makedirs(os.path.dirname(args['<out>']), exist_ok=True)
 	vcf_in = args['<vcf_file>']
+
 	# Check if bcftools is installed, and then check version number
 	check_bcftools()
 
@@ -232,9 +233,10 @@ def main(args):
 
 		# get locus info
 		# check whether chromosome in VCF file includes "chr" in chromosome
-		vcf_chrom = str(subprocess.Popen(f'gzcat {vcf_in} | tail -1 | cut -f1', shell=True))
-		locus = norm_chr(args['<locus>'], vcf_chrom.startswith('chr'))
-		chrom = locus.split(':')[0]
+		vcf_chrom = str(subprocess.Popen(f'gzcat {vcf_in} | tail -1 | cut -f1', shell=True,
+			stdout=subprocess.PIPE).communicate()[0].decode("utf-8"))
+		locus = args['<locus>']
+		chrom = norm_chr(locus.split(':')[0],vcf_chrom.startswith('chr'))
 
 		samples = str(subprocess.Popen(f'bcftools query -l {args["<vcf_file>"]}', shell=True, stdout=subprocess.PIPE).communicate()[0].decode("utf-8")).split('\n')
 		samples = list(filter(None,samples))
@@ -244,7 +246,7 @@ def main(args):
 
 		print(f'There are {n_samples} samples in the provided VCF.')
 
-		bcl_v=f"bcftools view -r {locus} {args['<vcf_file>']}"
+		bcl_v=f"bcftools view -r {chrom}:{locus.split(':')[1]} {args['<vcf_file>']}"
 		
 		# Pipe for bcftools
 		bcl_view = subprocess.Popen(bcl_v,shell=True, stdout=subprocess.PIPE)
@@ -256,7 +258,7 @@ def main(args):
 		# output  
 		raw_dat = bcl_query.communicate()[0].decode("utf-8")
 
-		temp_file_name=f"{os.path.dirname(args['<out>'])}/{str(chrom)}_prechrtable.txt"
+		temp_file_name=f"{args['<out>']}_prechrtable.txt"
 		with open(temp_file_name, 'w') as f:
 			f.write(raw_dat)
 			f.close()
