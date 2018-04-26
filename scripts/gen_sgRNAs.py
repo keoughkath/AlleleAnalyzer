@@ -584,8 +584,9 @@ def simple_guide_design(args, locus):
     
     # parse locus
     chrom = locus.split(':')[0]
-    start = locus.split(':')[1].split('-')[0]
-    stop = locus.split(':')[1].split('-')[1]
+    start = int(locus.split(':')[1].split('-')[0])
+    stop = int(locus.split(':')[1].split('-')[1])
+    pams_dir = args['<pams_dir>']
 
     for cas in CAS_LIST:
         #get cas info
@@ -616,19 +617,18 @@ def simple_guide_design(args, locus):
         # put together data for outputted dataframe
 
         # strands
-        pos_strands = list('positive'*len(pam_for_pos))
-        neg_strands = list('negative'*len(pam_rev_pos))
+        pos_strands = ['positive']*len(pam_for_pos)
+        neg_strands = ['negative']*len(pam_rev_pos)
 
         # start positions
         pos_starts = [ pos-guide_length-1 for pos in pam_for_pos ]
-        neg_starts = [ pos for pos in pam_rev_pos ]
+        neg_starts = pam_rev_pos
 
         # stop positions
         pos_stops = [ pos-1 for pos in pam_for_pos ]
-        neg_stops = [ pos+guide_length for pos in pam_for_pos ]
+        neg_stops = [ pos+guide_length for pos in pam_rev_pos ]
 
         # make gRNAs
-        pos_gRNAs = [ ref_genome['chr'+str(chrom)][pam_start - guide_length - 1:pam_start - 1] ]
 
         guides_out = pd.DataFrame()
         guides_out['pam_pos'] = pam_for_pos + pam_rev_pos
@@ -637,7 +637,7 @@ def simple_guide_design(args, locus):
         guides_out['stop'] = pos_stops + neg_stops
         guides_out['ref'] = np.nan
         guides_out['alt'] = np.nan
-        guides_out['grna'] = guides_out.apply(lambda row: simple_grnas(row, ref_genome, guide_length), axis=1)
+        guides_out['grna'] = guides_out.apply(lambda row: simple_grnas(row, ref_genome, guide_length, chrom), axis=1)
         guides_out['cas_type'] = cas
         guides_out['chrom'] = chrom
         guides_out['variant_position'] = np.nan
@@ -645,7 +645,7 @@ def simple_guide_design(args, locus):
 
 
 
-def simple_grnas(row, ref_genome, guide_length):
+def simple_grnas(row, ref_genome, guide_length, chrom):
     """
     Design gRNAs in reference genome.
     """
@@ -702,7 +702,6 @@ def get_guides(args, locus):
 
     # merge annots and genotypes
     var_annots = var_annots.merge(gens)
-    print(var_annots.head())
 
     # initialize dictionary to save locations of PAM proximal variants
     pam_prox_vars = {}
@@ -956,8 +955,6 @@ def main(args):
                 print(row['name'])
                 guides_df = get_guides(args, f'{chrom}:{start}-{stop}')
                 guides_df['locus'] = row['name']
-                print(guides_df.head())
-                exit()
                 out_list.append(guides_df)
         else:
             print('Finding allele-specific guides.')
