@@ -277,6 +277,7 @@ def get_allele_spec_guides(args, spec_locus=False):
     # set up what will become the output dataframe
     grna_df = pd.DataFrame(columns=['chrom','start','stop','ref','alt','variant_position_in_guide','gRNA_ref','gRNA_alt',
     'variant_position','strand','cas_type'])
+    ind = 0
 
     # make guides for variants within sgRNA region for 3 prime PAMs (guide_length bp upstream of for pos and vice versa)
     for cas in CAS_LIST:
@@ -289,7 +290,7 @@ def get_allele_spec_guides(args, spec_locus=False):
         pam_length = len(cas_obj.forwardPam)
         vars_near_pams = var_annots.query(f'var_near_{cas}')
         vars_make_pam = var_annots.query(f'makes_{cas}')
-        vars_destroy_pam = var_annots.query(f'breaks_{cas}1')
+        vars_destroy_pam = var_annots.query(f'breaks_{cas}')
 
         # start by designing all reference guides
         # design guides for variants near PAMs
@@ -412,7 +413,7 @@ def get_allele_spec_guides(args, spec_locus=False):
             pam_for_pos = list(filter(lambda x: x >= start and x <= stop, pam_for_pos))
             pam_rev_pos = np.load(os.path.join(pams_dir, f'chr{chrom}_{cas}_pam_sites_rev.npy')).tolist()
             pam_rev_pos = list(filter(lambda x: x >= start and x <= stop, pam_rev_pos))
-            if cas in TP_CAS_LIST:
+            if cas in CAS_LIST:
                 print(f'Currently evaluating {cas}.')
                 if cas in crisprtools.tpp_for.keys():
                     pam_length = crisprtools.tpp_for[cas][1]
