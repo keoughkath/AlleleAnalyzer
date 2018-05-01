@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# Rewriting `get_chr_tables.sh` in python
 # -*- coding: utf-8 -*-
 """
 get_gens_dfs.py generates a table (tsv file) listing all variants in a defined interval for a specified 
@@ -349,5 +348,5 @@ def main(args):
 
 
 if __name__ == '__main__':
-	arguments = docopt(__doc__, version='0.2')
+	arguments = docopt(__doc__, version=__version__)
 	main(arguments)
