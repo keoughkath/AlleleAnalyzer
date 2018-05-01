@@ -103,15 +103,16 @@ def main(args):
 		bed_file = args['<locus>']
 		out = args['<out>']
 		print(f'Analyzing BED file {bed_file}')
-		bed_df = pd.read_csv(bed_file, sep='\t', header=0, names=['chr','start','stop','locus'])
-		vcf_chrom = str(subprocess.Popen(f'bcftools view -H {vcf_in} | cut -f1 | head -1', shell=True, 
-			stdout=subprocess.PIPE).communicate()[0])
+		bed_df = pd.read_csv(bed_file, sep='\t', header=None, comment='#', names=['chr','start','stop','locus'])
+		vcf_chrom = subprocess.Popen(f'bcftools view -H {vcf_in} | cut -f1 | head -1', shell=True, 
+			stdout=subprocess.PIPE).communicate()[0].decode("utf-8").strip()
 		# See if chrom contains chr
-		if vcf_chrom.startswith('chr'):
-			chrstart = True
-		else:
-			chrstart = False
-
+		chrstart = vcf_chrom.startswith('chr')
+		bed_chrom = str(bed_df.iloc[0,0])
+		bed_note = bed_chrom.startswith('chr')
+		
+		if bed_note != chrstart:
+			print(f'Warning: Chromosome notations differ between BED file ({bed_chrom}) and VCF/BCF ({vcf_chrom}).')
 		# removes or adds "chr" based on analyzed VCF
 		bed_df['chr'] = [ norm_chr(chrom, chrstart) for chrom in bed_df['chr'].tolist() ]
 
