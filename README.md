@@ -9,13 +9,11 @@ ExcisionFinder is a database and toolset for analysis and design of allele-speci
 1. Getting started
 * [How it works](https://github.com/keoughkath/ExcisionFinder/wiki/Overview)
 * [Install ExcisionFinder and its requirements](https://github.com/keoughkath/ExcisionFinder/wiki/Install-ExcisionFinder-and-its-requirements)
-2. Reference database
-* [Query the database](https://github.com/keoughkath/ExcisionFinder/wiki/Tutorial:-Querying-ExcisionFinder-variant-annotations)
-3. Tool descriptions
+2. Tool descriptions
 * [Design allele-specific sgRNAs](https://github.com/keoughkath/ExcisionFinder/wiki/Features-of-gen_sgRNAs.py)
-4. Tutorials
-* [Design allele-specific sgRNAs](https://github.com/keoughkath/ExcisionFinder/wiki/Tutorial:-design-sgRNAs-in-an-individual-genome)
+3. Tutorials
+* [Tutorial: Design sgRNAs for allele specific excision of the gene MFN2 in the WTC genome](https://github.com/keoughkath/ExcisionFinder/wiki/Tutorial:-Design-sgRNAs-for-allele-specific-excision-of-the-gene-MFN2-in-the-WTC-genome)
 
-# ExcisionFinder data
+# ExcisionFinder 1000 Genomes analysis dataset
 
 The annotated variant database and gene targetability results from the 1000 Genomes Project are available [here](http://lighthouse.ucsf.edu/public_files_no_password/excisionFinderData_public/ExcisionFinder_manuscript_data/).
