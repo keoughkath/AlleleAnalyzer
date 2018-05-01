@@ -103,29 +103,31 @@ def main(args):
 		bed_file = args['<locus>']
 		out = args['<out>']
 		print(f'Analyzing BED file {bed_file}')
-		bed_df = pd.read_csv(bed_file, sep='\t', header=0, names=['chr','start','stop','locus'])
-		vcf_chrom = str(subprocess.Popen(f'bcftools view -H {vcf_in} | cut -f1 | head -1', shell=True, 
-			stdout=subprocess.PIPE).communicate()[0])
+		bed_df = pd.read_csv(bed_file, sep='\t', header=0)
+		vcf_chrom = subprocess.Popen(f'bcftools view -H {vcf_in} | cut -f1 | head -1', shell=True, 
+			stdout=subprocess.PIPE).communicate()[0].decode("utf-8").strip()
 		# See if chrom contains chr
-		if vcf_chrom.startswith('chr'):
-			chrstart = True
-		else:
-			chrstart = False
+		chrstart = vcf_chrom.startswith('chr')
 
+		bed_chrom = str(bed_df.iloc[0,0])
+		bed_note = bed_chrom.startswith('chr')
+
+		if bed_note != chrstart:
+			raise ValueError(f'Chromosome notations differ between BED file ({bed_chrom}) and VCF/BCF ({vcf_chrom}).')
 		# removes or adds "chr" based on analyzed VCF
-		bed_df['chr'] = [ norm_chr(chrom, chrstart) for chrom in bed_df['chr'].tolist() ]
+		#bed_df['chr'] = [ norm_chr(chrom, chrstart) for chrom in bed_df['chr'].tolist() ]
 
 		# write to temp file
-		bed_df.to_csv(f'{out}_temp.bed', index=False, sep='\t', header=False)
+		#bed_df.to_csv(f'{out}_temp.bed', index=False, sep='\t', header=False)
 
 		# gets genotypes at locus of interest, excluding those where 1+ samples missing a genotype call
 
 		# if option -f specified, indicating to keep homozygous variants, do so
 		if args['-f']:
-			bcl_v=f"bcftools view -g ^miss -R {out}_temp.bed {args['<vcf_file>']}"
+			bcl_v=f"bcftools view -g ^miss -R {bed_file} {args['<vcf_file>']}"
 		else:
-			bcl_v=f"bcftools view -g ^miss -g het -R {out}_temp.bed {args['<vcf_file>']}"
-		
+			bcl_v=f"bcftools view -g ^miss -g het -R {bed_file} {args['<vcf_file>']}"
+
 		# Pipe for bcftools
 		bcl_view = subprocess.Popen(bcl_v,shell=True, stdout=subprocess.PIPE)
 		# splits multiallelic sites into multiple lines
@@ -140,7 +142,7 @@ def main(args):
 
 		# save to HDF
 		raw_dat.to_hdf(f'{out}_gens.h5','all', data_columns=True)
-		os.remove(f'{out}_temp.bed')
+		#os.remove(f'{out}_temp.bed')
 		print('finished')
 
 	elif args['<locus>'].endswith('.bed') or args['<locus>'].endswith('.BED'):
