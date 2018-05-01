@@ -98,7 +98,7 @@ def main(args):
 	# Check if bcftools is installed, and then check version number
 	check_bcftools()
 
-	# if input is a BED file, run recursively
+	# analyze regions specified in BED file
 	if args['--bed']:
 		bed_file = args['<locus>']
 		out = args['<out>']
@@ -143,81 +143,6 @@ def main(args):
 		os.remove(f'{out}_temp.bed')
 		print('finished')
 
-
-		# hdf_out = pd.HDFStore(args['<out>'] + '.h5')
-		# for index, row in bed_df.iterrows():
-			
-		# 	# check whether chromosome in VCF file includes "chr" in chromosome
-		# 	vcf_chrom = str(subprocess.Popen(f'gzcat {vcf_in} | tail -1 | cut -f1', shell=True))
-
-		# 	if vcf_chrom.startswith('chr'):
-		# 		chrstart = True
-		# 	else:
-		# 		chrstart = False
-
-		# 	# See if chrom contains chr
-		# 	chrom = str(row['chr'])
-		# 	start = row['start']
-		# 	stop = row['stop']
-
-		# 	# removes or adds "chr" based on analyzed VCF
-		# 	chr_name = norm_chr(chrom, chrstart)
-
-		# 	# gets genotypes at locus of interest, excluding those where 1+ samples missing a genotype call
-		# 	# if option -f specified, indicating to keep homozygous variants, do so
-		# 	if args['-f']:
-		# 		bcl_v=f"bcftools view -g ^miss -r {chr_name}:{str(start)}-{str(stop)} {args['<vcf_file>']}"
-		# 	else:
-		# 		bcl_v=f"bcftools view -g ^miss -g het -r {chr_name}:{str(start)}-{str(stop)} {args['<vcf_file>']}"
-			
-		# 	# Pipe for bcftools
-		# 	bcl_view = subprocess.Popen(bcl_v,shell=True, stdout=subprocess.PIPE)
-		# 	# splits multiallelic sites into multiple lines
-		# 	bcl_norm = subprocess.Popen("bcftools norm -m -",shell=True, stdin=bcl_view.stdout, stdout=subprocess.PIPE)
-		# 	bcl_query = subprocess.Popen("bcftools query -f '%CHROM\t%POS\t%REF\t%ALT{0}\n'",shell=True,
-		# 	 stdin=bcl_norm.stdout, stdout=subprocess.PIPE)
-		# 	bcl_query.wait() # Don't do anything else untill bcl_query is done running.
-
-		# 	# output  
-		# 	raw_dat = StringIO(bcl_query.communicate()[0].decode("utf-8"))
-
-		# 	# temp_file_name=f"{args['<out>']}{str(chrom)}_prechrtable.txt"
-		# 	# with open(temp_file_name, 'w') as f:
-		# 	# 	f.write(raw_dat)
-		# 	# 	f.close()
-
-		# 	# generate output format
-		# 	vars = pd.read_csv(raw_dat, sep='\t', header=None, names=['chrom', 'pos', 'ref', 'alt'],
-		# 		usecols=['chrom', 'pos', 'ref', 'alt'])
-
-		# 	if vars.empty and args['-f']:
-		# 		print('No variants in this region for this individual. Moving on.')
-		# 		# os.remove(temp_file_name)
-		# 		continue
-		# 	elif vars.empty and not args['-f']:
-		# 		print('No heterozygous variants in this region for this individual. Moving on.')
-		# 		# os.remove(temp_file_name)
-		# 		continue
-
-		# 	# # this looks like it might be redundant now
-		# 	# if 'chr' in str(vars.chrom.iloc[0]):
-		# 	# 	vars['chrom'] = vars['chrom'].map(lambda x: norm_chr(x))
-
-		# 	# I'm pretty sure this is redundant too with alt{0} part in bcftools command
-		# 	# if args['-f']:
-		# 	# 	vars_fixed = vars.applymap(fix_multiallelics)
-		# 	# this was made redundant with change to bcftools argument above
-		# 	# else:
-		# 	# 	vars_fixed = filter_hets(vars.applymap(fix_multiallelics))
-
-		# 	locus_name = row['locus']
-		# 	print(locus_name)
-		# 	hdf_out.put(fix_natural_language(locus_name), vars)
-		# 	# hdf_out.put(row['locus'],vars_fixed, format='t', data_columns=True, complib='blosc')
-		# 	print(f'{locus_name} done.')
-			# os.remove(temp_file_name)
-		# hdf_out.close()
-
 	elif args['<locus>'].endswith('.bed') or args['<locus>'].endswith('.BED'):
 		print('Must specify --bed if inputting a BED file. Exiting.')
 		exit()
@@ -225,126 +150,76 @@ def main(args):
 		print('Running get_chr_tables.py on entire chromosome. This might take awhile.')
 		# get locus info
 		# check whether chromosome in VCF file includes "chr" in chromosome
-		vcf_chrom = str(subprocess.Popen(f'gzcat {vcf_in} | tail -1 | cut -f1', shell=True))
-		chrom = norm_chr(args['<locus>'])
+		vcf_chrom = str(subprocess.Popen(f'bcftools view -H {vcf_in} | cut -f1 | head -1', shell=True, 
+			stdout=subprocess.PIPE).communicate()[0])
+		# See if chrom contains chr
+		if vcf_chrom.startswith('chr'):
+			chrstart = True
+		else:
+			chrstart = False
+		chrom = norm_chr(args['<locus>'], chrstart)
 
-		samples = str(subprocess.Popen(f'bcftools query -l {args["<vcf_file>"]}', shell=True, stdout=subprocess.PIPE).communicate()[0].decode("utf-8")).split('\n')
-		samples = list(filter(None,samples))
-		n_samples = len(samples)
-
-		print(f'There are {n_samples} samples in the provided VCF.')
-
-		bcl_v=f"bcftools view -r {chrom} {args['<vcf_file>']}"
+		# if option -f specified, indicating to keep homozygous variants, do so
+		if args['-f']:
+			bcl_v=f"bcftools view -g ^miss -r {chrom} {args['<vcf_file>']}"
+		else:
+			bcl_v=f"bcftools view -g ^miss -g het -r {chrom} {args['<vcf_file>']}"
 		
 		# Pipe for bcftools
 		bcl_view = subprocess.Popen(bcl_v,shell=True, stdout=subprocess.PIPE)
+		# splits multiallelic sites into multiple lines
 		bcl_norm = subprocess.Popen("bcftools norm -m -",shell=True, stdin=bcl_view.stdout, stdout=subprocess.PIPE)
-		bcl_query = subprocess.Popen("bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%TGT]\n'",shell=True,
+		bcl_query = subprocess.Popen("bcftools query -f '%CHROM\t%POS\t%REF\t%ALT{0}\n'",shell=True,
 		 stdin=bcl_norm.stdout, stdout=subprocess.PIPE)
 		bcl_query.wait() # Don't do anything else untill bcl_query is done running.
 
 		# output  
-		raw_dat = bcl_query.communicate()[0].decode("utf-8")
+		raw_dat = pd.read_csv(StringIO(bcl_query.communicate()[0].decode("utf-8")), sep='\t')
+		raw_dat.columns = ['chrom','pos','ref','alt']
 
-		temp_file_name=f"{args['<outdir>']}/{str(chrom)}_prechrtable.txt"
-		with open(temp_file_name, 'w') as f:
-			f.write(raw_dat)
-			f.close()
-
-		genotype_list = []
-		for sample in samples:
-			genotype_list.append(f'{sample}')
-
-		# Append fix_chr_tables.py
-		name_list = ['chrom', 'pos', 'ref', 'alt'] + genotype_list
-		vars = pd.read_csv(temp_file_name, sep='\t', header=None, names=name_list,
-			usecols=name_list)
-
-		if vars.empty and args['-f']:
-			print('No variants in this region for this individual. Exiting.')
-			exit()
-		elif vars.empty and not args['-f']:
-			print('No heterozygous variants in this region for this individual. Exiting.')
-			exit()
-
-		if args['-f']:
-			vars_fixed = vars.applymap(fix_multiallelics)
-		else:
-			# gets rid of variants where not at least one ind has a het variant
-			vars_fixed = filter_hets(vars.applymap(fix_multiallelics))
-
-		if args['<name>']:
-			outname = f"{args['<name>']}.hdf5"
-		else:
-			outname = f'chr{chrom}_gens.hdf5'
-
-		vars_fixed.to_hdf(os.path.join(args['<outdir>'], outname), 'all', format='t', data_columns=True, complib='blosc')
-
-		os.remove(temp_file_name)
+		# save to HDF
+		raw_dat.to_hdf(f'{out}_gens.h5','all', data_columns=True)
+		print('finished')
 	else:
 		print('Running single locus')
 
 		# get locus info
-		# check whether chromosome in VCF file includes "chr" in chromosome
-		vcf_chrom = str(subprocess.Popen(f'gzcat {vcf_in} | tail -1 | cut -f1', shell=True,
-			stdout=subprocess.PIPE).communicate()[0].decode("utf-8"))
 		locus = args['<locus>']
-		chrom = norm_chr(locus.split(':')[0],vcf_chrom.startswith('chr'))
+		chrom = locus.split(':')[0]
+		# get locus info
+		# check whether chromosome in VCF file includes "chr" in chromosome
+		vcf_chrom = str(subprocess.Popen(f'bcftools view -H {vcf_in} | cut -f1 | head -1', shell=True, 
+			stdout=subprocess.PIPE).communicate()[0])
+		# See if chrom contains chr
+		if vcf_chrom.startswith('chr'):
+			chrstart = True
+		else:
+			chrstart = False
+		chrom = norm_chr(args['<locus>'], chrstart)
+		# properly formatted locus string
+		locus=f'{chrom}:'+locus.split(':')[1]
 
-		samples = str(subprocess.Popen(f'bcftools query -l {args["<vcf_file>"]}', shell=True, stdout=subprocess.PIPE).communicate()[0].decode("utf-8")).split('\n')
-		samples = list(filter(None,samples))
-		samples = [ fix_natural_language(name) for name in samples ]
-
-		n_samples = len(samples)
-
-		print(f'There are {n_samples} samples in the provided VCF.')
-
-		bcl_v=f"bcftools view -r {chrom}:{locus.split(':')[1]} {args['<vcf_file>']}"
+		# if option -f specified, indicating to keep homozygous variants, do so
+		if args['-f']:
+			bcl_v=f"bcftools view -g ^miss -r {locus} {args['<vcf_file>']}"
+		else:
+			bcl_v=f"bcftools view -g ^miss -g het -r {locus} {args['<vcf_file>']}"
 		
 		# Pipe for bcftools
 		bcl_view = subprocess.Popen(bcl_v,shell=True, stdout=subprocess.PIPE)
+		# splits multiallelic sites into multiple lines
 		bcl_norm = subprocess.Popen("bcftools norm -m -",shell=True, stdin=bcl_view.stdout, stdout=subprocess.PIPE)
-		bcl_query = subprocess.Popen("bcftools query -f '%CHROM\t%POS\t%REF\t%ALT[\t%TGT]\n'",shell=True,
+		bcl_query = subprocess.Popen("bcftools query -f '%CHROM\t%POS\t%REF\t%ALT{0}\n'",shell=True,
 		 stdin=bcl_norm.stdout, stdout=subprocess.PIPE)
 		bcl_query.wait() # Don't do anything else untill bcl_query is done running.
 
 		# output  
-		raw_dat = bcl_query.communicate()[0].decode("utf-8")
+		raw_dat = pd.read_csv(StringIO(bcl_query.communicate()[0].decode("utf-8")), sep='\t')
+		raw_dat.columns = ['chrom','pos','ref','alt']
 
-		temp_file_name=f"{args['<out>']}_prechrtable.txt"
-		with open(temp_file_name, 'w') as f:
-			f.write(raw_dat)
-			f.close()
-
-		genotype_list = []
-		for sample in samples:
-			genotype_list.append(f'{sample}')
-
-		# Append fix_chr_tables.py
-		name_list = ['chrom', 'pos', 'ref', 'alt'] + genotype_list
-		vars = pd.read_csv(temp_file_name, sep='\t', header=None, names=name_list,
-			usecols=name_list)
-
-		if vars.empty and args['-f']:
-			print('No variants in this region for this individual. Exiting.')
-			exit()
-		elif vars.empty and not args['-f']:
-			print('No heterozygous variants in this region for this individual. Exiting.')
-			exit()
-
-		if args['-f']:
-			vars_fixed = vars.applymap(fix_multiallelics)
-		else:
-			# gets rid of variants where not at least one ind has a het variant
-			vars_fixed = filter_hets(vars.applymap(fix_multiallelics))
-
-		outname = f"{args['<out>']}.hdf5"
-
-
-
-		vars_fixed.to_hdf(outname, 'all', format='t', data_columns=True, complib='blosc')
-
-		os.remove(temp_file_name)
+		# save to HDF
+		raw_dat.to_hdf(f'{out}_gens.h5','all', data_columns=True)
+		print('finished')
 
 
 if __name__ == '__main__':
