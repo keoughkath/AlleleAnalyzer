@@ -10,7 +10,8 @@ ExcisionFinder is a database and toolset for analysis and design of allele-speci
 * [How it works](https://github.com/keoughkath/ExcisionFinder/wiki/Overview)
 * [Install ExcisionFinder and its requirements](https://github.com/keoughkath/ExcisionFinder/wiki/Install-ExcisionFinder-and-its-requirements)
 2. Tool descriptions
-* [Design allele-specific sgRNAs](https://github.com/keoughkath/ExcisionFinder/wiki/Features-of-gen_sgRNAs.py)
+* [Design allele-specific sgRNAs](https://github.com/keoughkath/ExcisionFinder/wiki/Usage:-gen_sgRNAs.py)
+* [Using CRISPOR with ExcisionFinder](https://github.com/keoughkath/ExcisionFinder/wiki/Using-CRISPOR-with-gen_sgRNAs.py)
 3. Tutorials
 * [Tutorial: Design sgRNAs for allele specific excision of the gene MFN2 in the WTC genome](https://github.com/keoughkath/ExcisionFinder/wiki/Tutorial:-Design-sgRNAs-for-allele-specific-excision-of-the-gene-MFN2-in-the-WTC-genome)
 
