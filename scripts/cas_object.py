@@ -5,11 +5,10 @@ cas_object.py hold Cas info as part of ExcisionFinder. Written in Python v 3.6.1
 Kathleen Keough and Michael Olvera 2018.
 
 cas_object.py will do two things:
-	 + hold the Cas9 object info (one object per Cas enzyme) and 
+	 + hold the Cas object info (one object per Cas enzyme) and 
 	 will handle input error checking.
 	 + contain a function to create the objects from an external list
-	 (I was thinking just a text file, so if users want to add more
-	 enzymes in the future they can)
+	 CAS_LIST.txt
 """
 import os, sys
 CAS_PATH=os.path.dirname(os.path.realpath(sys.argv[0])) + '/CAS_LIST.txt'
@@ -108,17 +107,3 @@ def get_cas_list(cas_file=CAS_PATH):
 		if not line.startswith("#"):
 			cas_list.append(line.split('\t')[0])
 	return cas_list 
-
-## Below: for testing, will be removed in next pull or by 4/15/2018
-
-# test1 = get_cas_enzyme('SpCas9')
-# print(test1)
-# print(test1.forwardPam)
-# print(test1.forwardPam_regex())
-# print(test1.reversePam)
-# print(test1.reversePam_regex())
-# print(test1.primeness)
-
-# print(len(test1.forwardPam))
-
-# print(get_cas_list())

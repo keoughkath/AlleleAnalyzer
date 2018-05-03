@@ -5,7 +5,7 @@ gen_sgRNAs.py generates sgRNAs as part of ExcisionFinder. Written in Python v 3.
 Kathleen Keough et al 2018.
 
 Usage:
-    gen_sgRNAs.py [-ch] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor] [<ref_gen>] [--hom] [--bed] [--max_indel=<S>]
+    gen_sgRNAs.py [-chv] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor] [<ref_gen>] [--hom] [--bed] [--max_indel=<S>]
 
 Arguments:
     bcf                 BCF/VCF file with genotypes.
@@ -21,6 +21,7 @@ Arguments:
 Options:
     -h --help
     -c                  Do not take the reverse complement of the guide sequence for '-' stranded guides (when the PAM is on the 5' end).
+    -v                  Run in verbose mode (especially useful for debugging, but also for knowing status of script)
     --hom               Use 'homozygous' mode, which is basically finding all CRISPR sites (non-allele-specific) in a more personalized
                         way by taking in individual variants.
     --crispor           Add CRISPOR specificity scores to outputted guides. From Haeussler et al. Genome Biology 2016.
@@ -32,6 +33,8 @@ Options:
 Available cas types:
 cpf1, SpCas9, SpCas9_VRER, SpCas9_EQR, SpCas9_VQR_1, SpCas9_VQR_2, 
 StCas9, StCas9_2, SaCas9, SaCas9_KKH, nmCas9, cjCas9
+
+More can be added by modifying CAS_LIST.txt
 """
 
 import pandas as pd
@@ -46,6 +49,7 @@ import re
 from Bio import SeqIO
 import subprocess
 from io import StringIO
+import logging
 
 __version__ = '0.0.0'
 
@@ -55,51 +59,6 @@ REQUIRED_BCFTOOLS_VER = '1.5'
 # get rid of annoying false positive Pandas error
 
 pd.options.mode.chained_assignment = None
-
-# "three-prime PAMs, e.g. Cas9, PAM is 3' of the sgRNA sequence"
-
-# tuple which includes length intended to make it easier to generate 
-# IGV files later than also show PAM site, not to be confused with 
-# the manuscript analysis that uses only the non-N bases of PAMs 
-# and analyses how that influences occurrence in the genome
-
-tpp_for = {}
-
-tpp_for['SpCas9'] = (r'[atcg]gg', 3) # SpCas9, SpCas9-HF1, eSpCas1.1
-tpp_for['SpCas9_VRER'] = (r'[atcg]gcg', 4) # SpCas9 VRER variant
-tpp_for['SpCas9_EQR'] = (r'[actg]gag', 4) # SpCas9 EQR variant
-tpp_for['SpCas9_VQR_1'] = (r'[atcg]ga[atcg]', 4) # SpCas9 VQR variant 1
-tpp_for['SpCas9_VQR_2'] = (r'[atcg]g[atcg]g', 4) # SpCas9 VQR variant 2
-tpp_for['StCas9'] = (r'[actg]{2}agaa', 6) # S. thermophilus Cas9
-tpp_for['StCas9_2'] = (r'[actg]gg[actg]g', 5) # S. thermophilus Cas9 2
-tpp_for['SaCas9'] = (r'[atcg]{2}g[ag]{2}t', 6) # SaCas9
-tpp_for['SaCas9_KKH'] = (r'[atcg]{3}[ag]{2}t', 6) # SaCas9 KKH variant
-tpp_for['nmCas9'] = (r'[atcg]{4}g[ac]tt', 8) # nmCas9
-tpp_for['cjCas9'] = (r'[actg]{4}aca', 7) # campylobacter jejuni Cas9
-
-# find 3' PAMs on antisense strand (reverse complement)
-tpp_rev = {}
-
-tpp_rev['SpCas9_rev'] = (r'cc[atcg]', 3) # SpCas9 reverse complement 
-tpp_rev['SpCas9_VRER_rev'] = (r'cgc[atcg]', 4) # SpCas9 VRER variant reverse complement 
-tpp_rev['SpCas9_EQR_rev'] = (r'ctc[actg]', 4) # SpCas9 EQR variant reverse complement 
-tpp_rev['SpCas9_VQR_1_rev'] = (r'[atcg]tc[atcg]', 4) # SpCas9 VQR variant 1 reverse complement <--
-tpp_rev['SpCas9_VQR_2_rev'] = (r'c[atcg]c[atcg]', 4) # SpCas9 VQR variant 2 reverse complement 
-tpp_rev['StCas9_rev'] = (r'ttct[actg]{2}', 6) # S. thermophilus Cas9 reverse complement
-tpp_rev['StCas9_2_rev'] = (r'g[atcg]gg[atcg]', 5) # S. thermophilus Cas9 2 reverse complement 
-tpp_rev['SaCas9_rev'] = (r't[tc]{2}c[atcg]{2}', 6) # SaCas9 reverse complement 
-tpp_rev['SaCas9_KKH_rev'] = (r'a[tc]{2}[atcg]{3}', 6) # SaCas9 KKH variant reverse complement 
-tpp_rev['nmCas9_rev'] = (r'aa[tg]c[atcg]{4}', 8) # NmCas9 reverse complement 
-tpp_rev['cjCas9_rev'] = (r'tgt[actg]{4}', 7) # campylobacter jejuni Cas9
-# "five-prime PAMs, e.g. cpf1, PAM is 5' of the sgRNA sequence"
-fpp_for = {}
-
-fpp_for['cpf1'] = (r'ttt[atcg]', 4) # Cpf1, PAM 5' of guide
-
-# find 5' PAMs on antisense strand (reverse complement)
-fpp_rev = {}
-
-fpp_rev['cpf1_rev'] = (r'[atcg]aaa', 4) # Cpf1, PAM 5' of guide
 
 def find_the_pams(seqio_object):
 
@@ -133,6 +92,7 @@ def find_the_pams(seqio_object):
     # return dictionary of PAMs and their positions in the sequence
 
     return(pam_positions)
+
 
 def find_spec_pams(cas,python_string,orient='3prime'):
     # orient specifies whether this is a 3prime PAM (e.g. Cas9, PAM seq 3' of sgRNA)
@@ -197,6 +157,7 @@ def het(genotype):
 	gen1, gen2 = re.split('/|\|',genotype)
 	return gen1 != gen2
 
+
 def get_alt_seq(chrom, pam_start, var_pos, ref, alt, guide_length, ref_genome, strand='positive', var_type='near_pam'):
 
     if strand == 'positive':
@@ -252,11 +213,13 @@ def get_alt_seq(chrom, pam_start, var_pos, ref, alt, guide_length, ref_genome, s
         print ('Must specify strand, exiting at line 190.')
         exit()
 
+
 def make_rev_comp(s):
     """
     Generates reverse comp sequences from an input sequence.
     """
     return s[::-1].translate(s[::-1].maketrans('ACGT', 'TGCA'))
+
 
 def get_crispor_scores(out_df, outdir, ref_gen):
     guide_seqs_ref = ['>ref_guide_seqs\n']
@@ -309,6 +272,7 @@ def get_crispor_scores(out_df, outdir, ref_gen):
     outdf = outdf.merge(merge_df_alt, how='left', on='gRNA_alt')
     return(outdf)
 
+
 def parse_args(args, spec_locus=False):
     """
     Abstracing arg parser for both guide generating functions.
@@ -327,6 +291,7 @@ def parse_args(args, spec_locus=False):
         locus = args['<locus>']
     return args['<out>'], args['<pams_dir>'], args['<bcf>'], args['<annots_file>'], locus, ref, CAS_LIST, guide_length, int(args['--max_indel']) 
 
+
 def check_hom_gens(gens):
     """
     Prints out messages if no variants are found. 
@@ -336,6 +301,7 @@ def check_hom_gens(gens):
     elif gens.empty and not args['--hom']:
         print('No heterozygous variants in that region in this genome, exiting.')
         exit(1)
+
 
 def verify_hdf_files(gen_file, annots_file, chrom, start, stop, max_indel):
     """
@@ -359,7 +325,6 @@ def verify_hdf_files(gen_file, annots_file, chrom, start, stop, max_indel):
     # Iterate through the gens file, remove all rows with indels larger than 'max_indel' (in both the re and alt).
     indel_too_large = [ all(len(i) <= max_indel for i in (row['ref'],row['alt'])) for _, row in gen_file.iterrows() ]
     return gen_file[indel_too_large], annots_file[indel_too_large]
-
 
 
 def get_allele_spec_guides(args, spec_locus=False):
@@ -694,15 +659,21 @@ def norm_chr(chrom_str, vcf_chrom):
         return('chr' + chrom_str.replace('chr',''))
 
 
+def parse_locus(locus):
+    chrom = locus.split(':')[0]
+    start = int(locus.split(':')[1].split('-')[0])
+    stop = int(locus.split(':')[1].split('-')[1])
+    return chrom, start, stop
+
 def simple_guide_design(args, locus):
     """
     For the case when the individual has no variants in the locus, simply design guides based on reference sequence.
     """
     
     # parse locus
-    chrom = locus.split(':')[0]
-    start = int(locus.split(':')[1].split('-')[0])
-    stop = int(locus.split(':')[1].split('-')[1])
+    chrom, start, stop = parse_locus(locus)
+
+    # get location of annotated PAMs in reference genome
     pams_dir = args['<pams_dir>']
 
     for cas in CAS_LIST:
@@ -711,19 +682,6 @@ def simple_guide_design(args, locus):
 
         guide_length = int(args['<guide_length>'])
         ref_genome = Fasta(args['<ref_fasta>'], as_raw=True)
-
-        # initialize lists that will eventually become the output dataframe
-        starts = []
-        stops = []
-        refs = []
-        alts = []
-        grnas = []
-        variant_pos_in_guides = [] # keep this for annotation homozygous only
-        cas_types = []
-        chroms = []
-        variants_positions = []
-        strands = []
-        pam_pos = []
 
         # get PAM locations for this variety of Cas
         pam_for_pos = np.load(os.path.join(pams_dir, f'chr{chrom}_{cas}_pam_sites_for.npy')).tolist()
@@ -746,7 +704,6 @@ def simple_guide_design(args, locus):
         neg_stops = [ pos+guide_length for pos in pam_rev_pos ]
 
         # make gRNAs
-
         guides_out = pd.DataFrame()
         guides_out['pam_pos'] = pam_for_pos + pam_rev_pos
         guides_out['strand'] = pos_strands + neg_strands
@@ -759,7 +716,6 @@ def simple_guide_design(args, locus):
         guides_out['chrom'] = chrom
         guides_out['variant_position'] = np.nan
         return guides_out
-
 
 
 def simple_grnas(row, ref_genome, guide_length, chrom):
@@ -781,27 +737,24 @@ def get_guides(args, locus):
     """
 
     # parse locus
-    chrom = locus.split(':')[0]
-    start = locus.split(':')[1].split('-')[0]
-    stop = locus.split(':')[1].split('-')[1]
+    chrom, start, stop = parse_locus(locus)
     
     # load variant annotations
     var_annots = pd.read_hdf(args['<annots_file>'], where='pos >= start and pos <= stop')
 
-    # otherwise start designing guides
-    start, stop = map(int,locus.split(':')[1].split('-'))
-
     # load genotypes
     bcf = args['<bcf>']
+    # eliminates rows with missing genotypes
     bcl_v = f'bcftools view -g ^miss -r {chrom}:{start}-{stop} -H {bcf}'
     col_names = ['chrom','pos','rsid','ref','alt','score','random','info','gt','genotype']
     bcl_view = subprocess.Popen(bcl_v, shell=True, stdout=subprocess.PIPE)
     gens = pd.read_csv(StringIO(bcl_view.communicate()[0].decode("utf-8")),sep='\t',
     header=None, names=col_names, usecols=['chrom','pos','ref','alt','genotype'])
 
-    # if gens is empty, annots shoudl be too, double check this
+    # if gens is empty, annots should be too, double check this
     if gens.empty and not var_annots.empty:
-    	print('Gens and annots not matching up - debug line 684.')
+    	logging.info('Gens and annots not matching up - debug.')
+        exit(1)
 
     # if no variants annotated, proceed to simplest design case
     if gens.empty:
@@ -810,8 +763,8 @@ def get_guides(args, locus):
 
     # determine which variants are het and which aren't
     gens['het'] = gens['genotype'].apply(het)
-    het_gens = gens.query('het')
-    hom_gens = gens.query('not het')
+    het_gens = gens.query('het').copy()
+    hom_gens = gens.query('not het').copy()
     het_variants = set(het_gens.pos.tolist())
     hom_variants = set(hom_gens.pos.tolist())
     print('There are ' + str(len(het_variants)) + ' heterozygous variants and \
@@ -836,25 +789,39 @@ def get_guides(args, locus):
     strands = []
     pam_pos = []
 
+    # get some relevant variables
     pams_dir = args['<pams_dir>']
     guide_length = int(args['<guide_length>'])
     ref_genome = Fasta(args['<ref_fasta>'], as_raw=True)
 
-    # get sgRNAs with 3' PAMs
+    # get sgRNAs for each Cas variety
     for cas in CAS_LIST:
+        # load Cas data
         cas_obj = cas_object.get_cas_enzyme(cas)
+
+        # get annotated PAMs on + strand in reference genome
         pam_for_pos = np.load(os.path.join(pams_dir, f'chr{chrom}_{cas}_pam_sites_for.npy')).tolist()
-        pam_for_pos = list(filter(lambda x: x >= start and x <= stop, pam_for_pos))
+        pam_for_pos = list(filter(lambda x: x >= start and x <= stop, pam_for_pos)) 
+
+        # get annotated PAMs on - strand in reference genome
         pam_rev_pos = np.load(os.path.join(pams_dir, f'chr{chrom}_{cas}_pam_sites_rev.npy')).tolist()
         pam_rev_pos = list(filter(lambda x: x >= start and x <= stop, pam_rev_pos))
-        print(f'Currently evaluating {cas}.')
+        logging.info(f'Currently evaluating {cas}.')
+
+        # get length of PAM
         pam_length = len(cas_obj.forwardPam)
+
+        # get variants that are near a reference-annotated PAM site in the reference genome
+        # this is pre-computed based on variant annotation from preprocessing
         cas_prox_vars = []
         vars_near_pams = var_annots.query(f'var_near_{cas}')
         het_vars_near_pams = list(set(vars_near_pams.pos).intersection(set(het_variants)))
         hom_vars_near_pams = list(set(vars_near_pams.pos).intersection(set(hom_variants)))
+
+        # identify variants that occur in a PAM site
         vars_make_pam = var_annots.query(f'makes_{cas}')
         vars_destroy_pam = var_annots.query(f'breaks_{cas}')
+
         # check each possible existing gRNA for instances that break it or change the sgRNA sequence
         for pos in pam_for_pos:
             # disqualify sgRNAs with het variants in sgRNA seed region
@@ -867,7 +834,7 @@ def get_guides(args, locus):
             elif any(variant in range(pos-21,pos) for variant in hom_vars_near_pams):
                 vars_in_sgRNA = list(set(list(range(pos-21,pos))).intersection(set(hom_vars_near_pams)))
                 pam_site = pos
-                if len(vars_in_sgRNA) == 1:
+                if len(vars_in_sgRNA) == 1: # amending for >1 variants in seed region not yet supported
                     var = vars_in_sgRNA[0]
                     ref_allele = hom_gens.query('pos == @var')['ref'].item()
                     alt_allele = hom_gens.query('pos == @var')['alt'].item()
@@ -1031,78 +998,101 @@ def get_guides(args, locus):
     return out
 
 
+def multilocus_guides(args):
+    # if the user initiated the analysis correctly, load the regions to be analyzed
+    regions = pd.read_csv(args['<locus>'], sep='\t', header=0,
+        names=['chrom','start','stop','name'])
+
+    # figure out annotation of VCF/BCF chromosome (i.e. starts with 'chr' or not)
+    vcf_chrom = str(subprocess.Popen(f'bcftools view -H {args["<bcf>"]} | cut -f1 | head -1', shell=True, 
+        stdout=subprocess.PIPE).communicate()[0])
+
+    # See if chrom contains chr
+    if vcf_chrom.startswith('chr'):
+        chrstart = True
+    else:
+        chrstart = False
+
+    # correct the notation in the inputted file to match the VCF/BCF chromosome notation
+    regions['chrom'] = [ norm_chr(chrom, chrstart) for chrom in regions['chrom'].tolist() ]
+
+    # set this up to catch sgRNA dataframe outputs
+    out_list = []
+
+    # initiates multi-locus personalized guide design
+    if args['--hom']:
+        logging.info('Finding personalized (non-allele-specific) guides.')
+        for index, row in regions.iterrows():
+            chrom = row['chrom']
+            start = row['start']
+            stop = row['stop']
+            guides_df = get_guides(args, f'{chrom}:{start}-{stop}')
+            guides_df['locus'] = row['name']
+            out_list.append(guides_df)
+    # initiates design of allele-specific guides for multi-locus process
+    else:
+        logging.info('Finding allele-specific guides.')
+        for index, row in regions.iterrows():
+            chrom = row['chrom']
+            start = row['start']
+            stop = row['stop']
+            guides_df = get_allele_spec_guides(args, spec_locus=f'{chrom}:{start}-{stop}')
+            guides_df['locus'] = row['name']
+            out_list.append(guides_df)
+    # assembles full output dataframe for all loci evaluated
+    out = pd.concat(out_list)
+
+    return out
+
+
 def main(args):
     
     # make sure user has a supported version of bcftools available
     check_bcftools()
 
+    # assemble list of Cas enzymes that will be evaluated
     global CAS_LIST
     CAS_LIST = args['<cas_types>'].split(',')
 
-    print(args)
+    # print args (for debugging)
+    logging.info(args)
 
+    # determine whether running as multi-locus
     if args['--bed']:
-        print('Running as multi-locus, assumes BED file given.')
+        logging.info('Running as multi-locus, assumes BED file given.')
         if not args['<locus>'].endswith('.bed'):
-            print('Must use BED file in place of locus for --bed run. Exiting.')
-            exit()
-        regions = pd.read_csv(args['<locus>'], sep='\t', header=0,
-            names=['chrom','start','stop','name'])
-        # figure out annotation of VCF/BCF chromosome (i.e. starts with 'chr' or not)
-        vcf_chrom = str(subprocess.Popen(f'bcftools view -H {args["<bcf>"]} | cut -f1 | head -1', shell=True, 
-            stdout=subprocess.PIPE).communicate()[0])
-
-        # See if chrom contains chr
-        if vcf_chrom.startswith('chr'):
-            chrstart = True
+            logging.info('Error: Must use BED file in place of locus for --bed run. Exiting.')
+            exit(1)
         else:
-            chrstart = False
-
-        regions['chrom'] = [ norm_chr(chrom, chrstart) for chrom in regions['chrom'].tolist() ]
-
-        # set this up to catch output
-        out_list = []
-
-        if args['--hom']:
-            print('Finding non-allele-specific guides.')
-            for index, row in regions.iterrows():
-                chrom = row['chrom']
-                start = row['start']
-                stop = row['stop']
-                print(row['name'])
-                guides_df = get_guides(args, f'{chrom}:{start}-{stop}')
-                guides_df['locus'] = row['name']
-                out_list.append(guides_df)
-        else:
-            print('Finding allele-specific guides.')
-            for index, row in regions.iterrows():
-                chrom = row['chrom']
-                start = row['start']
-                stop = row['stop']
-                print(row['name'])
-                guides_df = get_allele_spec_guides(args, spec_locus=f'{chrom}:{start}-{stop}')
-                guides_df['locus'] = row['name']
-                out_list.append(guides_df)
-        out = pd.concat(out_list)
+            out = multilocus_guides(args)
+    # initiates personalized guide design for single locus
     elif args['--hom']:
-        print('Finding non-allele-specific guides.')
+        personalized guide design('Finding non-allele-specific guides.')
         out = get_guides(args)
+    # initiates allele-specific, personalized guide design for single locus
     else:
-        print('Finding allele-specific guides.')
+        logging.info('Finding allele-specific guides.')
         out = get_allele_spec_guides(args)
     
+    # assign unique identifier to each sgRNA
     out['guide_id'] = 'guide' + out.index.astype(str)
     
+    # add variant descriptors from 1KGP to assembled guides (optional)
     if args['<gene_vars>']:
         for i, row in out.iterrows():
             if pd.isnull(row['rsID']):
                 out.ix[i,'rsID'] = ':'.join([row['chrom'],str(row['variant_position']),row['ref'], row['alt']])
                 out.ix[i,'AF'] = 0
 
+    # saves output
     out.to_csv(args['<out>'] + '_guides.tsv', sep='\t', index=False)
-    print('Done.')
+    logging.info('Done.')
 
 
 if __name__ == '__main__':
     arguments = docopt(__doc__, version=__version__)
+    if arguments['-v']:
+        logging.basicConfig(level=logging.INFO, format='[%(asctime)s %(name)s:%(levelname)s ]%(message)s')
+    else:
+        logging.basicConfig(level=logging.ERROR, format='[%(asctime)s %(name)s:%(levelname)s ]%(message)s')
     main(arguments)
