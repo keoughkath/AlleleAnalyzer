@@ -135,8 +135,8 @@ def main(args):
 		bcl_query.wait() # Don't do anything else untill bcl_query is done running.
 
 		# output  
-		raw_dat = pd.read_csv(StringIO(bcl_query.communicate()[0].decode("utf-8")), sep='\t')
-		raw_dat.columns = ['chrom','pos','ref','alt']
+		raw_dat = pd.read_csv(StringIO(bcl_query.communicate()[0].decode("utf-8")), sep='\t', 
+			header=None, names=['chrom','pos','ref','alt'])
 
 		# save to HDF
 		raw_dat.to_hdf(f'{out}_gens.h5','all', data_columns=True)
@@ -215,8 +215,8 @@ def main(args):
 		bcl_query.wait() # Don't do anything else untill bcl_query is done running.
 
 		# output  
-		raw_dat = pd.read_csv(StringIO(bcl_query.communicate()[0].decode("utf-8")), sep='\t')
-		raw_dat.columns = ['chrom','pos','ref','alt']
+		raw_dat = pd.read_csv(StringIO(bcl_query.communicate()[0].decode("utf-8")), sep='\t', 
+			header=None, names=['chrom','pos','ref','alt'])
 
 		# save to HDF
 		raw_dat.to_hdf(f'{args["<out>"]}_gens.h5','all', data_columns=True)

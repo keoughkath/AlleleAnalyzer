@@ -94,10 +94,10 @@ def find_spec_pams(cas,python_string,orient):
 
 
 def het(genotype):
-	# if genotype == '.':
-	# 	return False
-	gen1, gen2 = re.split('/|\|',genotype)
-	return gen1 != gen2
+    # if genotype == '.':
+    #     return False
+    gen1, gen2 = re.split('/|\|',genotype)
+    return gen1 != gen2
 
 
 def check_bcftools():
@@ -107,11 +107,11 @@ def check_bcftools():
     version = subprocess.run("bcftools -v | head -1 | cut -d ' ' -f2", shell=True,\
      stdout=subprocess.PIPE).stdout.decode("utf-8").rstrip()
     if float(version) >= float(REQUIRED_BCFTOOLS_VER):
-        print(f'bcftools version {version} running')
+        logging.info(f'bcftools version {version} running')
 
     else: 
-        print(f"Error: bcftools must be >={REQUIRED_BCFTOOLS_VER}. Current version: {version}")
-        exit()
+        logging.info(f"Error: bcftools must be >={REQUIRED_BCFTOOLS_VER}. Current version: {version}")
+        exit(1)
 
 
 def get_alt_seq(chrom, pam_start, var_pos, ref, alt, guide_length, ref_genome, strand='positive', var_type='near_pam'):
@@ -166,8 +166,8 @@ def get_alt_seq(chrom, pam_start, var_pos, ref, alt, guide_length, ref_genome, s
         return ref_seq.upper(), alt_seq.upper()
     else:
 
-        print ('Must specify strand, exiting at line 190.')
-        exit()
+        logging.info ('Must specify strand.')
+        exit(1)
 
 
 def make_rev_comp(s):
@@ -222,7 +222,6 @@ def get_crispor_scores(out_df, outdir, ref_gen):
     merge_df_alt['scores_alt'] = score_dir_alt['mitSpecScore']
     merge_df_alt['offtargcount_alt'] = score_dir_alt['offtargetCount']
     merge_df_alt['gRNA_alt'] = score_dir_alt['targetSeq'].str[:-3] # get rid of added on PAM site
-    # print(merge_df.head(3))
     # output outdir with its new score columns
     outdf = out_df.merge(merge_df_ref, how='left', on='gRNA_ref')
     outdf = outdf.merge(merge_df_alt, how='left', on='gRNA_alt')
@@ -237,17 +236,17 @@ def verify_hdf_files(gen_file, annots_file, chrom, start, stop, max_indel):
     start, stop = int(start), int(stop)
     comp = ['chrom', 'pos', 'ref', 'alt']
     if not gen_file[comp].equals(annots_file[comp]):
-        print('ERROR: gen file and targ file variants do not match.')
+        logging.info('ERROR: gen file and targ file variants do not match.')
         exit(1)
     #Check chr
     if not len(Counter(gen_file['chrom']).keys()) == 1:
-        print("ERROR: variants map to different chromosomes") # Should exit?
+        logging.info("ERROR: variants map to different chromosomes") # Should exit?
         exit(0)
     # Check vars
     if not all(start < int(i) < stop  for i in gen_file['pos']):
-        print('Warning: Not all variants are between the defined ranges')
+        logging.info('Warning: Not all variants are between the defined ranges')
     if not any(start < int(i) < stop  for i in gen_file['pos']):
-        print('ERROR: no variants in defined range.')
+        logging.info('ERROR: no variants in defined range.')
     # Iterate through the gens file, remove all rows with indels larger than 'max_indel' (in both the re and alt).
     indel_too_large = [ all(len(i) <= max_indel for i in (row['ref'],row['alt'])) for _, row in gen_file.iterrows() ]
     return gen_file[indel_too_large], annots_file[indel_too_large]
@@ -261,21 +260,44 @@ def get_allele_spec_guides(args):
     # load genotypes
     bcf = args['<bcf>']
 
+    # get locus info 
+    chrom, start, stop = parse_locus(args['<locus>'])
+
+    # get location of pams directory with stored locations of PAMs in reference genome
+    pams_dir = args['<pams_dir>']
+
+    # get guide length
+    guide_length = int(args['<guide_length>'])
+
+    # get ref_genome
+    ref_genome = args['<ref_fasta>']
+
+    # figure out annotation of VCF/BCF chromosome (i.e. starts with 'chr' or not)
+    vcf_chrom = str(subprocess.Popen(f'bcftools view -H {args["<bcf>"]} | cut -f1 | head -1', shell=True, 
+        stdout=subprocess.PIPE).communicate()[0])
+
+    # See if chrom contains chr
+    if vcf_chrom.startswith('chr'):
+        chrstart = True
+    else:
+        chrstart = False
+
+    chrom = norm_chr(chrom, chrstart)
+
     # eliminates rows with missing genotypes and gets those where heterozygous
     bcl_v = f'bcftools view -g ^miss -g het -r {chrom}:{start}-{stop} -H {bcf}'
     col_names = ['chrom','pos','rsid','ref','alt','score','random','info','gt','genotype']
     bcl_view = subprocess.Popen(bcl_v, shell=True, stdout=subprocess.PIPE)
+    bcl_view.wait()
+
     gens = pd.read_csv(StringIO(bcl_view.communicate()[0].decode("utf-8")),sep='\t',
     header=None, names=col_names, usecols=['chrom','pos','ref','alt','genotype'])
 
-    # load locus variants and load variant annotations
-    gens = pd.read_hdf(gens)
-    var_annots = pd.read_hdf(var_annots)
-
-    chrom, start, stop = parse_locus(locus)
+    # load variant annotations
+    var_annots = pd.read_hdf(args['<annots_file>'])
 
     # remove big indels
-    gens, var_annots = verify_hdf_files(gens, var_annots, chrom, start, stop, max_indel)
+    gens, var_annots = verify_hdf_files(gens, var_annots, chrom, start, stop, int(args['--max_indel']))
 
     # if gens is empty, annots should be too, double check this
     if gens.empty and not var_annots.empty:
@@ -303,9 +325,11 @@ def get_allele_spec_guides(args):
         pam_length = len(cas_obj.forwardPam)
 
         # get positions of PAMs annotated in reference genome
-        pam_for_pos = np.load(os.path.join(pams_dir, f'chr{chrom}_{cas}_pam_sites_for.npy')).tolist()
+        if not chrom.startswith('chr'):
+            chrom = 'chr'+chrom
+        pam_for_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_for.npy')).tolist()
         pam_for_pos = list(filter(lambda x: x >= start and x <= stop, pam_for_pos))
-        pam_rev_pos = np.load(os.path.join(pams_dir, f'chr{chrom}_{cas}_pam_sites_rev.npy')).tolist()
+        pam_rev_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_rev.npy')).tolist()
         pam_rev_pos = list(filter(lambda x: x >= start and x <= stop, pam_rev_pos))
 
         logging.info(f'Currently evaluating {cas}.')
@@ -332,7 +356,7 @@ def get_allele_spec_guides(args):
             nearby_rev_pams = list(set(proximal_sites_rev) & set(pam_rev_pos))
             for pam_site in nearby_rev_pams:
 
-                grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, row['pos'], row['ref'], row['alt'], guide_length, ref_genome, 
+                grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, int(pam_site), int(row['pos']), row['ref'], row['alt'], int(guide_length), ref_genome, 
                     strand='negative', var_type='near_pam')
                 if not args['-c']:
                     grna_ref_seq, grna_alt_seq = make_rev_comp(grna_ref_seq), make_rev_comp(grna_alt_seq)
@@ -452,10 +476,12 @@ def get_allele_spec_guides(args):
 
 def norm_chr(chrom_str, vcf_chrom):
     chrom_str = str(chrom_str)
-    if not vcf_chrom:
+    if vcf_chrom:
         return chrom_str.replace('chr','')
-    elif vcf_chrom:
-        return('chr' + chrom_str.replace('chr',''))
+    elif not vcf_chrom and not chrom_str.startswith('chr'):
+        return 'chr' + chrom_str
+    else:
+        return chrom_str
 
 
 def parse_locus(locus):
@@ -556,7 +582,7 @@ def get_guides(args, locus):
 
     # if gens is empty, annots should be too, double check this
     if gens.empty and not var_annots.empty:
-    	logging.info('Gens and annots not matching up - debug.')
+        logging.info('Gens and annots not matching up - debug.')
         exit(1)
 
     # if no variants annotated, proceed to simplest design case
@@ -764,7 +790,7 @@ def get_guides(args, locus):
                     cas_types.append(cas)
                     variants_positions.append(var)
                 else:
-                    print(f'Multiple variants in guide for PAM @ {pos}, not equipped for this yet. Skipping.')
+                    logging.info(f'Multiple variants in guide for PAM @ {pos}, not equipped for this yet. Skipping.')
                     continue
             else:
                 # assume sgRNA isn't disrupted by anything
@@ -868,7 +894,7 @@ def main(args):
             out = multilocus_guides(args)
     # initiates personalized guide design for single locus
     elif args['--hom']:
-        personalized guide design('Finding non-allele-specific guides.')
+        logging.info('Finding non-allele-specific guides.')
         out = get_guides(args)
     # initiates allele-specific, personalized guide design for single locus
     else:
