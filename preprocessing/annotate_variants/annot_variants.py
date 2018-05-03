@@ -23,58 +23,20 @@ available Cas types = cpf1,SpCas9,SpCas9_VRER,SpCas9_EQR,SpCas9_VQR_1,SpCas9_VQR
 import pandas as pd
 import numpy as np
 from docopt import docopt
-import os
+import os, sys
 from pyfaidx import Fasta
 import regex
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 # 3 and 5 prime cas lists
 
-TP_CAS_LIST = ['SpCas9', 'SpCas9_VRER', 'SpCas9_EQR', 'SpCas9_VQR_1',
-               'SpCas9_VQR_2', 'StCas9', 'StCas9_2', 'SaCas9', 'SaCas9_KKH', 'nmCas9', 'cjCas9']
-
-FP_CAS_LIST = ['cpf1']
-
-# "three-prime PAMs, e.g. Cas9, PAM is 3' of the sgRNA sequence"
-tpp_for = {}
-
-tpp_for['SpCas9'] = r'[atcg]gg' # SpCas9, SpCas9-HF1, eSpCas1.1
-tpp_for['SpCas9_VRER'] = r'[atcg]gcg' # SpCas9 VRER variant
-tpp_for['SpCas9_EQR'] = r'[actg]gag' # SpCas9 EQR variant
-tpp_for['SpCas9_VQR_1'] = r'[atcg]ga' # SpCas9 VQR variant 1
-tpp_for['SpCas9_VQR_2'] = r'[atcg]g[atcg]g' # SpCas9 VQR variant 2
-tpp_for['StCas9'] = r'[actg]{2}agaa' # S. thermophilus Cas9
-tpp_for['StCas9_2'] = r'[actg]gg[actg]g' # S. thermophilus Cas9 2
-tpp_for['SaCas9'] = r'[atcg]{2}g[ag]{2}t' # SaCas9
-tpp_for['SaCas9_KKH'] = r'[atcg]{3}[ag]{2}t' # SaCas9 KKH variant
-tpp_for['nmCas9'] = r'[atcg]{4}g[ac]tt' # nmCas9
-tpp_for['cjCas9'] = r'[actg]{4}aca' # campylobacter jejuni Cas9
-
-# find 3' PAMs on antisense strand (reverse complement)
-tpp_rev = {}
-
-tpp_rev['SpCas9_rev'] = r'cc[atcg]' # SpCas9 reverse complement 
-tpp_rev['SpCas9_VRER_rev'] = r'cgc[atcg]' # SpCas9 VRER variant reverse complement 
-tpp_rev['SpCas9_EQR_rev'] = r'ctc[actg]' # SpCas9 EQR variant reverse complement 
-tpp_rev['SpCas9_VQR_1_rev'] = r'[atcg]tc[atcg]' # SpCas9 VQR variant 1 reverse complement 
-tpp_rev['SpCas9_VQR_2_rev'] = r'c[atcg]c[atcg]' # SpCas9 VQR variant 2 reverse complement 
-tpp_rev['StCas9_rev'] = r'ttct[actg]{2}' # S. thermophilus Cas9 reverse complement
-tpp_rev['StCas9_2_rev'] = r'g[atcg]gg[atcg]' # S. thermophilus Cas9 2 reverse complement 
-tpp_rev['SaCas9_rev'] = r't[tc]{2}c[atcg]{2}' # SaCas9 reverse complement 
-tpp_rev['SaCas9_KKH_rev'] = r'a[tc]{2}[atcg]{3}' # SaCas9 KKH variant reverse complement 
-tpp_rev['nmCas9_rev'] = r'aa[tg]c[atcg]{4}' # NmCas9 reverse complement 
-tpp_rev['cjCas9_rev'] = r'tgt[actg]{4}' # campylobacter jejuni Cas9
-
-# "five-prime PAMs, e.g. cpf1, PAM is 5' of the sgRNA sequence"
-fpp_for = {}
-
-fpp_for['cpf1'] = r'ttt[atcg]' # Cpf1, PAM 5' of guide
-
-# find 5' PAMs on antisense strand (reverse complement)
-fpp_rev = {}
-
-fpp_rev['cpf1_rev'] = r'[atcg]aaa' # Cpf1, PAM 5' of guide
+# Get apsolute path for gen_targ_dfs.py, and edit it for cas_object.py
+cas_obj_path = os.path.dirname(os.path.realpath(__file__))
+cas_obj_path = cas_obj_path.replace('preprocessing/annotate_variants','scripts/')
+sys.path.append(cas_obj_path)
+# Import cas_object
+import cas_object as cas_obj
 
 
 def get_range_upstream(pam_pos):
@@ -97,7 +59,7 @@ def get_range_downstream(pam_pos):
     return sgrna
 
 
-def find_spec_pams(cas,python_string,orient='3prime'):
+def find_spec_pams(cas_obj,python_string,orient='3prime'):
     # orient specifies whether this is a 3prime PAM (e.g. Cas9, PAM seq 3' of sgRNA)
     # or a 5prime PAM (e.g. cpf1, PAM 5' of sgRNA)
 
@@ -120,17 +82,17 @@ def find_spec_pams(cas,python_string,orient='3prime'):
         return(set(starts))
 
     if orient == '3prime':
-        for_starts = get_pam_fiveprime(tpp_for[cas],sequence)
-        rev_starts = get_pam_threeprime(tpp_rev[cas+'_rev'],sequence)
+        for_starts = get_pam_fiveprime(cas_obj.forwardPam_regex() ,sequence)
+        rev_starts = get_pam_threeprime(cas_obj.reversePam_regex(),sequence)
     elif orient == '5prime':
-        for_starts = get_pam_threeprime(fpp_for[cas],sequence)
-        rev_starts = get_pam_fiveprime(fpp_rev[cas+'_rev'],sequence)
+        for_starts = get_pam_threeprime(cas_obj.forwardPam_regex(),sequence)
+        rev_starts = get_pam_fiveprime(cas_obj.reversePam_regex(),sequence)
 
     return(for_starts,rev_starts)
 
 
 
-def makes_breaks_pam(cas, chrom, pos, ref, alt, ref_genome):
+def makes_breaks_pam(cas_obj, chrom, pos, ref, alt, ref_genome):
 
     """
     Determine if cas in question makes or breaks PAM sites.
@@ -161,12 +123,12 @@ def makes_breaks_pam(cas, chrom, pos, ref, alt, ref_genome):
         alt_seq = ref_genome[str(chrom)][var - 11:var - 1] + alt + ref_genome[str(chrom)][
                                                              var + len(alt) - 1:var + len(alt) - 1 + 10]
 
-    if cas == 'cpf1':
-        ref_pams_for, ref_pams_rev = find_spec_pams(cas, ref_seq, orient='5prime')
-        alt_pams_for, alt_pams_rev = find_spec_pams(cas, alt_seq, orient='5prime')
+    if cas_obj.primeness == "5'":
+        ref_pams_for, ref_pams_rev = find_spec_pams(cas_obj, ref_seq, orient='5prime')
+        alt_pams_for, alt_pams_rev = find_spec_pams(cas_obj, alt_seq, orient='5prime')
     else:
-        ref_pams_for, ref_pams_rev = find_spec_pams(cas, ref_seq)
-        alt_pams_for, alt_pams_rev = find_spec_pams(cas, alt_seq)
+        ref_pams_for, ref_pams_rev = find_spec_pams(cas_obj, ref_seq)
+        alt_pams_for, alt_pams_rev = find_spec_pams(cas_obj, alt_seq)
 
     if len(alt_pams_for) - len(ref_pams_for) > 0 or len(alt_pams_rev) - len(ref_pams_rev) > 0:
         makes_pam = True
@@ -186,7 +148,9 @@ def get_made_broke_pams(df, chrom, ref_genome):
     :return: dataframe with indicators for whether each variant makes/breaks PAMs, pd df.
     """
     for cas in cas_list:
-        makes, breaks = zip(*df.apply(lambda row: makes_breaks_pam(cas, chrom, row['pos'], row['ref'], row['alt'], ref_genome), axis=1))
+        current_cas = cas_obj.get_cas_enzyme(cas, os.path.join(cas_obj_path,'CAS_LIST.txt'))
+
+        makes, breaks = zip(*df.apply(lambda row: makes_breaks_pam(current_cas, chrom, row['pos'], row['ref'], row['alt'], ref_genome), axis=1))
         df[f'makes_{cas}'] = makes
         df[f'breaks_{cas}'] = breaks
     return df
@@ -195,7 +159,7 @@ def get_made_broke_pams(df, chrom, ref_genome):
 def annot_variants(args):
     if type(args) == tuple:
         args = args[1]
-    out_dir = args['<out_dir>']
+    out_dir = args['<out>']
     pams_dir = args['<pams_dir>']
     gens = args['<gens_file>']
     ref_genome = Fasta(args['<ref_genome_fasta>'], as_raw=True)
@@ -222,10 +186,15 @@ def annot_variants(args):
     pam_prox_vars = {}
 
     # get variants within sgRNA region for 3 prime PAMs (20 bp upstream of for pos and vice versa)
+    FULL_CAS_LIST = cas_obj.get_cas_list(os.path.join(cas_obj_path,'CAS_LIST.txt'))
 
     for cas in cas_list:
-        if cas in TP_CAS_LIST:
-            print(cas)
+        if cas not in FULL_CAS_LIST:
+            print(f'Skipping {cas}, not in CAS_LIST.txt')
+            continue
+        current_cas = cas_obj.get_cas_enzyme(cas, os.path.join(cas_obj_path,'CAS_LIST.txt'))
+        if current_cas.primeness == "3'":
+            print(current_cas)
             cas_prox_vars = []
             pam_dict = {}
             pam_for_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_for.npy')).tolist()
@@ -242,8 +211,8 @@ def annot_variants(args):
 
     # same for five prime pams
 
-        elif cas in FP_CAS_LIST:
-            print(cas)
+        elif current_cas.primeness == "5'":
+            print(current_cas)
             cas_prox_vars = []
             pam_dict = {}
             pam_for_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_for.npy')).tolist()
@@ -308,8 +277,13 @@ def main(args):
             # get variants within sgRNA region for 3 prime PAMs (20 bp upstream of for pos and vice versa)
 
             for cas in cas_list:
-                if cas in TP_CAS_LIST:
-                    print(cas)
+                if cas not in FULL_CAS_LIST:
+                    print(f'Skipping {cas}, not in CAS_LIST.txt')
+                    continue
+                current_cas = cas_obj.get_cas_enzyme(cas, os.path.join(cas_obj_path,'CAS_LIST.txt'))
+
+                if current_cas.primeness == "3'":
+                    print(current_cas)
                     cas_prox_vars = []
                     pam_dict = {}
                     pam_for_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_for.npy')).tolist()
@@ -326,8 +300,8 @@ def main(args):
 
             # same for five prime pams
 
-                elif cas in FP_CAS_LIST:
-                    print(cas)
+                elif current_cas.primeness == "5'":
+                    print(current_cas)
                     cas_prox_vars = []
                     pam_dict = {}
                     pam_for_pos = np.load(os.path.join(pams_dir, f'chr{chrom}_{cas}_pam_sites_for.npy')).tolist()
@@ -367,10 +341,16 @@ def main(args):
         pam_prox_vars = {}
 
         # get variants within sgRNA region for 3 prime PAMs (20 bp upstream of for pos and vice versa)
+        FULL_CAS_LIST = cas_obj.get_cas_list(os.path.join(cas_obj_path,'CAS_LIST.txt'))
 
         for cas in cas_list:
-            if cas in TP_CAS_LIST:
-                print(cas)
+            if cas not in FULL_CAS_LIST:
+                print(f'Skipping {cas}, not in CAS_LIST.txt')
+                continue
+            current_cas = cas_obj.get_cas_enzyme(cas, os.path.join(cas_obj_path,'CAS_LIST.txt'))
+
+            if current_cas.primeness == "3'":
+                print(current_cas)
                 cas_prox_vars = []
                 pam_dict = {}
                 pam_for_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_for.npy')).tolist()
@@ -387,14 +367,12 @@ def main(args):
 
         # same for five prime pams
 
-            elif cas in FP_CAS_LIST:
-                print(cas)
+            elif current_cas.primeness == "5'":
+                print(current_cas)
                 cas_prox_vars = []
                 pam_dict = {}
-                if not chrom.startswith('chr'):
-                    chrom = 'chr' + chrom
-                pam_for_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_for.npy')).tolist()
-                pam_rev_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_rev.npy')).tolist()
+                pam_for_pos = np.load(os.path.join(pams_dir, f'chr{chrom}_{cas}_pam_sites_for.npy')).tolist()
+                pam_rev_pos = np.load(os.path.join(pams_dir, f'chr{chrom}_{cas}_pam_sites_rev.npy')).tolist()
                 for pos in pam_for_pos:
                     prox_vars = set(get_range_downstream(pos)) & chr_variants
                     cas_prox_vars.extend(prox_vars)
