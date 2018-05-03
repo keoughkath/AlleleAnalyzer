@@ -32,10 +32,12 @@ REQUIRED_BCFTOOLS_VER = 1.5
 
 def norm_chr(chrom_str, vcf_chrom):
 	chrom_str = str(chrom_str)
-	if not vcf_chrom:
+	if vcf_chrom:
 		return chrom_str.replace('chr','')
-	elif vcf_chrom:
-		return('chr' + chrom_str)
+	elif not vcf_chrom and not chrom_str.startswith('chr'):
+		return 'chr' + chrom_str
+	else:
+		return chrom_str
 
 def check_bcftools():
 	""" 
@@ -193,7 +195,8 @@ def main(args):
 			chrstart = True
 		else:
 			chrstart = False
-		chrom = norm_chr(args['<locus>'], chrstart)
+		chrom = norm_chr(chrom, chrstart)
+
 		# properly formatted locus string
 		locus=f'{chrom}:'+locus.split(':')[1]
 
@@ -216,7 +219,7 @@ def main(args):
 		raw_dat.columns = ['chrom','pos','ref','alt']
 
 		# save to HDF
-		raw_dat.to_hdf(f'{out}_gens.h5','all', data_columns=True)
+		raw_dat.to_hdf(f'{args["<out>"]}_gens.h5','all', data_columns=True)
 		print('finished')
 
 
