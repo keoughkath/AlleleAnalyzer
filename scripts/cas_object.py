@@ -11,7 +11,7 @@ cas_object.py will do two things:
 	 CAS_LIST.txt
 """
 import os, sys
-CAS_PATH=os.path.dirname(os.path.realpath(sys.argv[0])) + '/CAS_LIST.txt'
+CAS_PATH=os.path.dirname(os.path.realpath(__file__)) + '/CAS_LIST.txt'
 IUPAC={'Y':'[CT]','R':'[AG]','W':'[AT]',
 	'S':'[GC]','K':'[TG]','M':'[CA]','D':'[AGT]',
 	'V':'[ACG]','H':'[ACT]','B':'[CGT]','N':'[ACGT]',
@@ -84,6 +84,14 @@ class Cas(object):
 		self._primeness = value
 
 
+def print_cas_types(cas_file=CAS_PATH):
+	"""
+	Prints out all Cas9 names from get_cas_list() in a formated way.
+	"""
+	print('Avalible cas enzymes: ')
+	print('\t', end='')
+	for c in get_cas_list(cas_file): print(c, end=' ')
+	print()
 
 def get_cas_enzyme(name, cas_file=CAS_PATH):
 	"""
