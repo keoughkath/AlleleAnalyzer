@@ -51,7 +51,7 @@ import subprocess
 from io import StringIO
 import logging
 
-__version__ = '0.0.0'
+__version__ = '0.0.1'
 
 REQUIRED_BCFTOOLS_VER = '1.5'
 
@@ -60,41 +60,8 @@ REQUIRED_BCFTOOLS_VER = '1.5'
 
 pd.options.mode.chained_assignment = None
 
-def find_the_pams(seqio_object):
 
-    # this will be the ultimate output, a dictionary linking PAM names to their positions
-
-    pam_positions = {}
-
-    # get sequence of inputted seqIO object
-
-    sequence = str(seqio_object.seq)
-    seqid = seqio_object.id
-
-    # set inputs to variables, string for sequence of region of interest
-    # ends up being region_seq. 
-
-    chrom = seqid.split(':')[0]
-    low = int(seqid.split(':')[1].split('-')[0]) # low end of region of interest
-    high = int(seqid.split(':')[1].split('-')[1]) # high end of region of interest
-
-    # interior function to get PAM sites for each PAM motif
-    
-    def get_pam_starts(pam_regex,sequence):
-        starts = set()
-        for pam in regex.finditer(pam_regex, sequence,regex.IGNORECASE,overlapped=True):
-            starts.add(pam.end()+low+1) 
-        return(set(starts))
-
-    for key,value in pam_dict.items():
-        pam_positions[key] = get_pam_starts(value,sequence)
-
-    # return dictionary of PAMs and their positions in the sequence
-
-    return(pam_positions)
-
-
-def find_spec_pams(cas,python_string,orient='3prime'):
+def find_spec_pams(cas,python_string,orient):
     # orient specifies whether this is a 3prime PAM (e.g. Cas9, PAM seq 3' of sgRNA)
     # or a 5prime PAM (e.g. cpf1, PAM 5' of sgRNA)
 
@@ -116,10 +83,10 @@ def find_spec_pams(cas,python_string,orient='3prime'):
             starts.append(pam.end()) 
         return(starts)
 
-    if orient == '3prime':
+    if orient == "3'":
         for_starts = get_pam_fiveprime(tpp_for[cas][0],sequence)
         rev_starts = get_pam_threeprime(tpp_rev[cas+'_rev'][0],sequence)
-    elif orient == '5prime':
+    elif orient == "5'":
         for_starts = get_pam_threeprime(fpp_for[cas][0],sequence)
         rev_starts = get_pam_fiveprime(fpp_rev[cas+'_rev'][0],sequence)
 
@@ -127,35 +94,24 @@ def find_spec_pams(cas,python_string,orient='3prime'):
 
 
 def het(genotype):
-    gen1, gen2 = re.split('/|\|',genotype)
-    return gen1 != gen2
-
-
-def get_range_upstream(pam_pos, pam_length, guide_length):
-    """
-    Get positions within specified sgRNA length bp upstream, i.e. for forward 3' PAMs or reverse 5' PAMs
-    :param pam_pos: position of PAM, int.
-    :return: sgRNA seed region positions, set of ints.
-    """
-    sgrna = list(range(pam_pos - guide_length - 1, pam_pos + pam_length))
-    return sgrna
-
-
-def get_range_downstream(pam_pos, pam_length, guide_length):
-    """
-    Get positions within specified sgRNA length bp downstream, i.e. for forward 3' PAMs or reverse 5' PAMs
-    :param pam_pos: position of PAM, int.
-    :return: sgRNA seed region positions, set of ints.
-    """
-    sgrna = list(range(pam_pos - pam_length, pam_pos + guide_length + 1))
-    return sgrna
-
-
-def het(genotype):
 	# if genotype == '.':
 	# 	return False
 	gen1, gen2 = re.split('/|\|',genotype)
 	return gen1 != gen2
+
+
+def check_bcftools():
+    """ 
+    Checks bcftools version, and exits the program if the version is incorrect
+    """
+    version = subprocess.run("bcftools -v | head -1 | cut -d ' ' -f2", shell=True,\
+     stdout=subprocess.PIPE).stdout.decode("utf-8").rstrip()
+    if float(version) >= float(REQUIRED_BCFTOOLS_VER):
+        print(f'bcftools version {version} running')
+
+    else: 
+        print(f"Error: bcftools must be >={REQUIRED_BCFTOOLS_VER}. Current version: {version}")
+        exit()
 
 
 def get_alt_seq(chrom, pam_start, var_pos, ref, alt, guide_length, ref_genome, strand='positive', var_type='near_pam'):
@@ -271,36 +227,6 @@ def get_crispor_scores(out_df, outdir, ref_gen):
     outdf = out_df.merge(merge_df_ref, how='left', on='gRNA_ref')
     outdf = outdf.merge(merge_df_alt, how='left', on='gRNA_alt')
     return(outdf)
-
-
-def parse_args(args, spec_locus=False):
-    """
-    Abstracing arg parser for both guide generating functions.
-    """
-    global CAS_LIST
-    CAS_LIST = list(args['<cas_types>'].split(','))
-    guide_length = int(args['<guide_length>'])
-    ref = Fasta(args['<ref_fasta>'], as_raw=True)
-    # error message if ref gen not specified for CRISPOR
-    if args['--crispor'] and not args['<ref_gen>']:
-        logging.info('Must specify ref_gen is option --crispor.')
-        exit()
-    if spec_locus:
-        locus = spec_locus
-    else:
-        locus = args['<locus>']
-    return args['<out>'], args['<pams_dir>'], args['<bcf>'], args['<annots_file>'], locus, ref, CAS_LIST, guide_length, int(args['--max_indel']) 
-
-
-def check_hom_gens(gens):
-    """
-    Prints out messages if no variants are found. 
-    """
-    if gens.empty and args['--hom']:
-        print('No variants in that region in this genome, using PAMs from reference only.')
-    elif gens.empty and not args['--hom']:
-        print('No heterozygous variants in that region in this genome, exiting.')
-        exit(1)
 
 
 def verify_hdf_files(gen_file, annots_file, chrom, start, stop, max_indel):
@@ -420,6 +346,7 @@ def get_allele_spec_guides(args):
             var = row['pos']
             ref = row['ref']
             alt = row['alt']
+
             ref_seq = ref_genome['chr'+str(chrom)][var - 11:var + 10]
 
             if len(ref) > len(alt):  # handles deletions
@@ -430,8 +357,8 @@ def get_allele_spec_guides(args):
                 alt_seq = ref_genome['chr'+str(chrom)][var - 11:var - 1] + alt + ref_genome['chr'+str(chrom)][
                                                                      var + len(alt) - 1:var + len(alt) - 1 + 10]
 
-            ref_pams_for, ref_pams_rev = find_spec_pams(cas, ref_seq)
-            alt_pams_for, alt_pams_rev = find_spec_pams(cas, alt_seq)
+            ref_pams_for, ref_pams_rev = find_spec_pams(cas, ref_seq, orient=cas_obj.primeness)
+            alt_pams_for, alt_pams_rev = find_spec_pams(cas, alt_seq, orient=cas_obj.primeness)
 
             lost_pams_for = list(set(ref_pams_for).difference(set(alt_pams_for)))
             lost_pams_rev = list(set(ref_pams_rev).difference(set(alt_pams_rev)))
@@ -476,8 +403,8 @@ def get_allele_spec_guides(args):
                 alt_seq = ref_genome['chr'+str(chrom)][var - 11:var - 1] + alt + ref_genome['chr'+str(chrom)][
                                                                      var + len(alt) - 1:var + len(alt) - 1 + 10]
 
-            ref_pams_for, ref_pams_rev = find_spec_pams(cas, ref_seq)
-            alt_pams_for, alt_pams_rev = find_spec_pams(cas, alt_seq)
+            ref_pams_for, ref_pams_rev = find_spec_pams(cas, ref_seq, orient=cas_obj.primeness)
+            alt_pams_for, alt_pams_rev = find_spec_pams(cas, alt_seq, orient=cas_obj.primeness)
 
             made_pams_for = list(set(alt_pams_for).difference(set(ref_pams_for)))
             made_pams_rev = list(set(alt_pams_rev).difference(set(ref_pams_rev)))
@@ -521,20 +448,6 @@ def get_allele_spec_guides(args):
 
         grna_df = grna_df.merge(gene_vars, how='left', on=['chrom','variant_position','ref','alt'])
     return grna_df
-
-
-def check_bcftools():
-    """ 
-    Checks bcftools version, and exits the program if the version is incorrect
-    """
-    version = subprocess.run("bcftools -v | head -1 | cut -d ' ' -f2", shell=True,\
-     stdout=subprocess.PIPE).stdout.decode("utf-8").rstrip()
-    if float(version) >= float(REQUIRED_BCFTOOLS_VER):
-        print(f'bcftools version {version} running')
-
-    else: 
-        print(f"Error: bcftools must be >={REQUIRED_BCFTOOLS_VER}. Current version: {version}")
-        exit()
 
 
 def norm_chr(chrom_str, vcf_chrom):
@@ -637,6 +550,9 @@ def get_guides(args, locus):
     bcl_view = subprocess.Popen(bcl_v, shell=True, stdout=subprocess.PIPE)
     gens = pd.read_csv(StringIO(bcl_view.communicate()[0].decode("utf-8")),sep='\t',
     header=None, names=col_names, usecols=['chrom','pos','ref','alt','genotype'])
+
+    # remove big indels
+    gens, var_annots = verify_hdf_files(gens, var_annots, chrom, start, stop, max_indel)
 
     # if gens is empty, annots should be too, double check this
     if gens.empty and not var_annots.empty:
@@ -772,8 +688,8 @@ def get_guides(args, locus):
                 alt_seq = ref_genome['chr'+str(chrom)][var - 11:var - 1] + alt + ref_genome['chr'+str(chrom)][
                                                                      var + len(alt) - 1:var + len(alt) - 1 + 10]
 
-            ref_pams_for, ref_pams_rev = find_spec_pams(cas, ref_seq)
-            alt_pams_for, alt_pams_rev = find_spec_pams(cas, alt_seq)
+            ref_pams_for, ref_pams_rev = find_spec_pams(cas, ref_seq, orient=cas_obj.primeness)
+            alt_pams_for, alt_pams_rev = find_spec_pams(cas, alt_seq, orient=cas_obj.primeness)
 
             made_pams_for = list(set(alt_pams_for).difference(set(ref_pams_for)))
             made_pams_rev = list(set(alt_pams_rev).difference(set(ref_pams_rev)))

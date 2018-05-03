@@ -12,17 +12,14 @@ Usage:
 
 Arguments:
 	vcf_file           The sample vcf file, separated by chromosome. BCF also supported. 
-	locus			   Locus from which to pull variants, in format chromosome:start-stop, or a BED file, 
-					   in which case you must specify --bed
+	locus			   Locus from which to pull variants, in format chromosome:start-stop, or a BED file if --bed.
 	out				   The name for the output file and directory in which to save the output files.
 Options:
 	-f                 If this option is specified, keeps homozygous variants in output file. 
-					   Therefore, downstream this will generate both allele-specific and non-
-					   allele-specific sgRNAs.
 	--bed              Indicates that a BED file is being used in place of a locus.
-	--chrom            Run on entire chromosome, e.g. for 1KGP analysis. If specified, just put the chromosome
-	                   in for <locus>.
+	--chrom            Run on entire chromosome.
 """
+
 import pandas as pd
 from docopt import docopt
 import subprocess, os, sys
