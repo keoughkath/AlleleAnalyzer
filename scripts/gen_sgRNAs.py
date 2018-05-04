@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-gen_sgRNAs.py generates sgRNAs as part of ExcisionFinder. Written in Python v 3.6.1.
+gen_sgRNAs.py generates sgRNAs as part of ExcisionFinder. New Cas enzymes can be added by modifying CAS_LIST.txt.
+Written in Python v 3.6.1.
 Kathleen Keough et al 2018.
 
 Usage:
-    gen_sgRNAs.py [-chv] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor] [<ref_gen>] [--hom] [--bed] [--max_indel=<S>]
+    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor] [<ref_gen>] [--hom] [--bed] [--max_indel=<S>]
 
 Arguments:
     bcf                 BCF/VCF file with genotypes.
@@ -27,14 +28,15 @@ Options:
     --crispor           Add CRISPOR specificity scores to outputted guides. From Haeussler et al. Genome Biology 2016.
     ref_gen             Directory name of reference genome (complete) which can be downloaded from UCSC (see wiki). This is required
                         if you specify --crispor
-    --bed             Design sgRNAs for multiple regions specified in a BED file.
+    --bed               Design sgRNAs for multiple regions specified in a BED file.
     --max_indel=<S>     Maximum size for INDELS. Must be smaller than guide_length [default: 5].
+    -r                  Return guides in as RNA sequences rather than DNA sequences.
+    -d                  Return dummy guides for .  
 
 Available cas types:
 cpf1, SpCas9, SpCas9_VRER, SpCas9_EQR, SpCas9_VQR_1, SpCas9_VQR_2, 
 StCas9, StCas9_2, SaCas9, SaCas9_KKH, nmCas9, cjCas9
 
-More can be added by modifying CAS_LIST.txt
 """
 
 import pandas as pd
@@ -55,7 +57,8 @@ __version__ = '0.0.1'
 
 REQUIRED_BCFTOOLS_VER = '1.5'
 
-
+COLUMN_ORDER=['chrom','variant_position','ref','alt','gRNA_ref','gRNA_alt',
+'variant_position_in_guide','start','stop','strand','cas_type','guide_id','rsID','AF']
 # get rid of annoying false positive Pandas error
 
 pd.options.mode.chained_assignment = None
@@ -252,6 +255,18 @@ def verify_hdf_files(gen_file, annots_file, chrom, start, stop, max_indel):
     # Iterate through the gens file, remove all rows with indels larger than 'max_indel' (in both the re and alt).
     indel_too_large = [ all(len(i) <= max_indel for i in (row['ref'],row['alt'])) for _, row in gen_file.iterrows() ]
     return gen_file[indel_too_large], annots_file[indel_too_large]
+
+
+def filter_out_N_in_PAM(outdf, cas_ins):
+    """
+    Using the given cas list, find N indexes and remove rows with N's.
+    """
+    for cas in cas_ins:
+        current_cas = cas_object.get_cas_enzyme(cas)
+        n_index = [i for i, l in enumerate(current_cas.forwardPam[::-1]) if l == 'N']
+        outdf = outdf[~(outdf['variant_position_in_guide'].isin(n_index)) & (outdf['cas_type'] == cas)]
+    return outdf
+
 
 
 def get_allele_spec_guides(args):
@@ -903,6 +918,7 @@ def main(args):
             exit(1)
         else:
             out = multilocus_guides(args)
+            out = filter_out_N_in_PAM(out, CAS_LIST)
     # initiates personalized guide design for single locus
     elif args['--hom']:
         logging.info('Finding non-allele-specific guides.')
@@ -911,9 +927,22 @@ def main(args):
     else:
         logging.info('Finding allele-specific guides.')
         out = get_allele_spec_guides(args)
+        out = filter_out_N_in_PAM(out, CAS_LIST)
     
+
     # assign unique identifier to each sgRNA
     out['guide_id'] = 'guide' + out.index.astype(str)
+
+    # convert to RNA
+    if args['-r']:
+        out['gRNA_ref'] = out['gRNA_ref'].map(lambda x: x.replace('T','U'))
+        out['gRNA_alt'] = out['gRNA_alt'].map(lambda x: x.replace('T','U'))
+
+    if not args['-d']:
+        for i, row in out.iterrows():
+            for col in ['gRNA_ref', 'gRNA_alt']:
+                if row[col] == len(row[col]) * row[col][0]:
+                    out.ix[i,col] = '-'
     
     # add variant descriptors from 1KGP to assembled guides (optional)
     if args['<gene_vars>']:
@@ -921,6 +950,9 @@ def main(args):
             if pd.isnull(row['rsID']):
                 out.ix[i,'rsID'] = ':'.join([row['chrom'],str(row['variant_position']),row['ref'], row['alt']])
                 out.ix[i,'AF'] = 0
+        out = out[COLUMN_ORDER]
+    else:
+        out = out[COLUMN_ORDER[:-2]] # Exclude rsID and AF rows
 
     # saves output
     out.to_csv(args['<out>'] + '_guides.tsv', sep='\t', index=False)
