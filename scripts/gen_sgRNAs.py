@@ -257,6 +257,18 @@ def verify_hdf_files(gen_file, annots_file, chrom, start, stop, max_indel):
     return gen_file[indel_too_large], annots_file[indel_too_large]
 
 
+def filter_out_N_in_PAM(outdf, cas_ins):
+    """
+    Using the given cas list, find N indexes and remove rows with N's.
+    """
+    for cas in cas_ins:
+        current_cas = cas_object.get_cas_enzyme(cas)
+        n_index = [i for i, l in enumerate(current_cas.forwardPam[::-1]) if l == 'N']
+        outdf = outdf[~(outdf['variant_position_in_guide'].isin(n_index)) & (outdf['cas_type'] == cas)]
+    return outdf
+
+
+
 def get_allele_spec_guides(args):
     """ 
     Outputs dataframe with allele-specific guides.
@@ -906,6 +918,7 @@ def main(args):
             exit(1)
         else:
             out = multilocus_guides(args)
+            out = filter_out_N_in_PAM(out, CAS_LIST)
     # initiates personalized guide design for single locus
     elif args['--hom']:
         logging.info('Finding non-allele-specific guides.')
@@ -914,7 +927,9 @@ def main(args):
     else:
         logging.info('Finding allele-specific guides.')
         out = get_allele_spec_guides(args)
+        out = filter_out_N_in_PAM(out, CAS_LIST)
     
+
     # assign unique identifier to each sgRNA
     out['guide_id'] = 'guide' + out.index.astype(str)
 
@@ -927,7 +942,7 @@ def main(args):
         for i, row in out.iterrows():
             for col in ['gRNA_ref', 'gRNA_alt']:
                 if row[col] == len(row[col]) * row[col][0]:
-                    out.ix[i,col] = '-' * args['']
+                    out.ix[i,col] = '-'
     
     # add variant descriptors from 1KGP to assembled guides (optional)
     if args['<gene_vars>']:
