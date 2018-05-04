@@ -34,8 +34,8 @@ def norm_chr(chrom_str, vcf_chrom):
 	chrom_str = str(chrom_str)
 	if vcf_chrom:
 		return chrom_str.replace('chr','')
-	elif not vcf_chrom and not chrom_str.startswith('chr'):
-		return 'chr' + chrom_str
+	elif not vcf_chrom and chrom_str.startswith('chr'):
+		return chrom_str.replace('chr','')
 	else:
 		return chrom_str
 

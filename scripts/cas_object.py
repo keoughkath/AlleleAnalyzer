@@ -11,7 +11,9 @@ cas_object.py will do two things:
 	 CAS_LIST.txt
 """
 import os, sys
-CAS_PATH=os.path.dirname(os.path.realpath(__file__)) + '/CAS_LIST.txt'
+
+CAS_PATH = f'{sys.path[0]}/CAS_LIST.txt'
+
 IUPAC={'Y':'[CT]','R':'[AG]','W':'[AT]',
 	'S':'[GC]','K':'[TG]','M':'[CA]','D':'[AGT]',
 	'V':'[ACG]','H':'[ACT]','B':'[CGT]','N':'[ACGT]',
