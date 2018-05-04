@@ -195,7 +195,7 @@ def annot_variants(args):
             continue
         current_cas = cas_obj.get_cas_enzyme(cas, os.path.join(cas_obj_path,'CAS_LIST.txt'))
         if current_cas.primeness == "3'":
-            print(current_cas)
+            print(current_cas.name)
             cas_prox_vars = []
             pam_dict = {}
             pam_for_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_for.npy')).tolist()
@@ -213,7 +213,7 @@ def annot_variants(args):
     # same for five prime pams
 
         elif current_cas.primeness == "5'":
-            print(current_cas)
+            print(current_cas.name)
             cas_prox_vars = []
             pam_dict = {}
             pam_for_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_for.npy')).tolist()
