@@ -31,7 +31,7 @@ Options:
     --bed               Design sgRNAs for multiple regions specified in a BED file.
     --max_indel=<S>     Maximum size for INDELS. Must be smaller than guide_length [default: 5].
     -r                  Return guides in as RNA sequences rather than DNA sequences.
-    -d                  Return dummy guides for .  
+    -d                  Return dummy guides for variants without a PAM, e.g. when variant makes or breaks a PAM. 
 
 Available cas types:
 cpf1, SpCas9, SpCas9_VRER, SpCas9_EQR, SpCas9_VQR_1, SpCas9_VQR_2, 
