@@ -922,6 +922,12 @@ def main(args):
     if args['-r']:
         out['gRNA_ref'] = out['gRNA_ref'].map(lambda x: x.replace('T','U'))
         out['gRNA_alt'] = out['gRNA_alt'].map(lambda x: x.replace('T','U'))
+
+    if not args['-d']:
+        for i, row in out.iterrows():
+            for col in ['gRNA_ref', 'gRNA_alt']:
+                if row[col] == len(row[col]) * row[col][0]:
+                    out.ix[i,col] = '-' * args['']
     
     # add variant descriptors from 1KGP to assembled guides (optional)
     if args['<gene_vars>']:
