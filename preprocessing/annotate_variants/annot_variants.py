@@ -52,7 +52,7 @@ def get_range_upstream(pam_pos):
 
 def get_range_downstream(pam_pos):
     """
-    Get positions 20 bp upstream, i.e. for forward 3' PAMs or reverse 5' PAMs
+    Get positions 20 bp downstream, i.e. for forward 5' PAMs or reverse 3' PAMs
     :param pam_pos: position of PAM, int.
     :return: sgRNA seed region positions, set of ints.
     """
@@ -305,8 +305,8 @@ def main(args):
                     print(current_cas.name)
                     cas_prox_vars = []
                     pam_dict = {}
-                    pam_for_pos = np.load(os.path.join(pams_dir, f'chr{chrom}_{cas}_pam_sites_for.npy')).tolist()
-                    pam_rev_pos = np.load(os.path.join(pams_dir, f'chr{chrom}_{cas}_pam_sites_rev.npy')).tolist()
+                    pam_for_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_for.npy')).tolist()
+                    pam_rev_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_rev.npy')).tolist()
                     for pos in pam_for_pos:
                         prox_vars = set(get_range_downstream(pos)) & chr_variants
                         cas_prox_vars.extend(prox_vars)
