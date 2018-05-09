@@ -262,7 +262,12 @@ def filter_out_N_in_PAM(outdf, cas_ins):
     filt = []
     for cas in cas_ins:
         current_cas = cas_object.get_cas_enzyme(cas)
-        n_index = [i for i, l in enumerate(current_cas.forwardPam[::-1]) if l == 'N']
+        if current_cas.primeness == "5'":
+            en_PAM = current_cas.forwardPam
+        else:
+            en_PAM = current_cas.forwardPam[::-1]
+        n_index = [i for i, l in enumerate(en_PAM) if l == 'N']
+        print(current_cas.forwardPam, n_index)
         filt += [i for i, row in outdf.iterrows() if row['variant_position_in_guide'] in n_index and row['cas_type'] == cas]
         #outdf = outdf[~(outdf['variant_position_in_guide'].isin(n_index)) & (outdf['cas_type'] == cas)]
     outdf = outdf.drop(filt)
@@ -932,7 +937,7 @@ def main(args):
         out = filter_out_N_in_PAM(out, CAS_LIST)
 
     # assign unique identifier to each sgRNA
-    out['guide_id'] = 'guide' + out.index.astype(str)
+    out['guide_id'] = out.apply(lambda row: f"{row['cas_type']}_g" + row.name.astype(str), axis=1)
 
     # convert to RNA
     if args['-r']:
@@ -963,7 +968,7 @@ def main(args):
 if __name__ == '__main__':
     arguments = docopt(__doc__, version=__version__)
     if arguments['--cas-list']:
-        cas_obj.print_cas_types()
+        cas_object.print_cas_types()
         exit()
     if arguments['-v']:
         logging.basicConfig(level=logging.INFO, format='[%(asctime)s %(name)s:%(levelname)s ]%(message)s')
