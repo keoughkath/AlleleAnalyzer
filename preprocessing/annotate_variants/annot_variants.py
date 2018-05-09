@@ -16,19 +16,19 @@ Arguments:
     ref_genome_fasta    Fasta file for reference genome.
     out                 Prefix for output files.
 Options:
-    --bed               Indicates analysis of regions from a BED file rather than a single locus.
     -C --cas-list       List avalibe cas types and exits.
-
+    -v                  Verbose mode.
 """
 
 import pandas as pd
 import numpy as np
 from docopt import docopt
 import os, sys
+from collections import Counter
 from pyfaidx import Fasta
 import regex
 
-__version__ = '0.0.2'
+__version__ = '0.0.3'
 
 # 3 and 5 prime cas lists
 
@@ -156,94 +156,15 @@ def get_made_broke_pams(df, chrom, ref_genome):
         df[f'breaks_{cas}'] = breaks
     return df
 
+def split_gens(gens_df, chroms):
+    """
+    Takes in a gens file with multiple loci, and splits it based on chromosome.
+    :param gens_df: gens dataframe.
+    :param chroms: list of chromosome notations.
+    :return: list of dataframse, each dataframe with one chromosome notation.
+    """
+    return [ gens_df.loc[gens_df['chrom'] == c] for c in chroms]
 
-def annot_variants(args):
-    if type(args) == tuple:
-        args = args[1]
-    out_dir = args['<out>']
-    pams_dir = args['<pams_dir>']
-    gens = args['<gens_file>']
-    ref_genome = Fasta(args['<ref_genome_fasta>'], as_raw=True)
-
-    # load chromosome variants
-
-    # gens = pd.read_hdf(gens, 'all')
-    # this is now done in a bash script
-    # norm_cmd = f"bcftools norm -r 3:129247482-129254187 -m - {gens}"
-    # bcl_norm = subprocess.Popen(norm_cmd,shell=True, stdout=subprocess.PIPE)
-    # bcl_query = subprocess.Popen("bcftools query -f '%CHROM\t%POS\t%REF\t%ALT{0}\n'",shell=True,
-    #          stdin=bcl_norm.stdout, stdout=subprocess.PIPE)
-    # bcl_query.wait()
-    # out = StringIO(bcl_query.communicate()[0].decode("utf-8"))
-    gens = pd.read_csv(gens, sep='\t', header=None, names=['chrom','pos','ref','alt'])
-
-    chrom = str(gens.chrom.tolist()[0])
-    if not chrom.startswith('chr'):
-        chrom = 'chr' + chrom
-    chr_variants = set(gens['pos'].tolist())
-
-    # save locations of PAM proximal variants to dictionary
-
-    pam_prox_vars = {}
-
-    # get variants within sgRNA region for 3 prime PAMs (20 bp upstream of for pos and vice versa)
-    FULL_CAS_LIST = cas_obj.get_cas_list(os.path.join(cas_obj_path,'CAS_LIST.txt'))
-
-    for cas in cas_list:
-        if cas not in FULL_CAS_LIST:
-            print(f'Skipping {cas}, not in CAS_LIST.txt')
-            continue
-        current_cas = cas_obj.get_cas_enzyme(cas, os.path.join(cas_obj_path,'CAS_LIST.txt'))
-        if current_cas.primeness == "3'":
-            print(current_cas.name)
-            cas_prox_vars = []
-            pam_dict = {}
-            pam_for_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_for.npy')).tolist()
-            pam_rev_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_rev.npy')).tolist()
-            for pos in pam_for_pos:
-                prox_vars = set(get_range_upstream(pos)) & chr_variants
-                cas_prox_vars.extend(prox_vars)
-                pam_dict[pos] = prox_vars
-            for pos in pam_rev_pos:
-                prox_vars = set(get_range_downstream(pos)) & chr_variants
-                cas_prox_vars.extend(prox_vars)
-                pam_dict[pos] = prox_vars
-            pam_prox_vars[cas] = cas_prox_vars
-
-    # same for five prime pams
-
-        elif current_cas.primeness == "5'":
-            print(current_cas.name)
-            cas_prox_vars = []
-            pam_dict = {}
-            pam_for_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_for.npy')).tolist()
-            pam_rev_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_rev.npy')).tolist()
-            for pos in pam_for_pos:
-                prox_vars = set(get_range_downstream(pos)) & chr_variants
-                cas_prox_vars.extend(prox_vars)
-                pam_dict[pos] = prox_vars
-            for pos in pam_rev_pos:
-                prox_vars = set(get_range_upstream(pos)) & chr_variants
-                cas_prox_vars.extend(prox_vars)
-                pam_dict[pos] = prox_vars
-            pam_prox_vars[cas] = cas_prox_vars
-
-    chrdf = get_made_broke_pams(gens, chrom, ref_genome)
-
-    # make_break_df.to_hdf(os.path.join(out_dir, f'chr{chrom}_make_break.hdf5'), 'all', complib='blosc')
-
-    for cas in cas_list:
-        # print(cas)
-        spec_pam_prox_vars = pam_prox_vars[cas]
-        chrdf[f'var_near_{cas}'] = chrdf['pos'].isin(spec_pam_prox_vars)
-
-    cas_cols = []
-    for cas in cas_list:
-        prelim_cols = [w.replace('cas',cas) for w in ['makes_cas','breaks_cas','var_near_cas']]
-        cas_cols.extend(prelim_cols)
-    keepcols = ['chrom','pos','ref','alt'] + cas_cols 
-    chrdf = chrdf[keepcols]
-    chrdf.to_hdf(f'{out_dir}_targ.hdf5', 'all', mode='w', format='table', data_columns=True, complib='blosc')
 
 
 def main(args):
@@ -255,94 +176,25 @@ def main(args):
     global cas_list
     cas_list = list(args['<cas>'].split(','))
 
-    if args['--bed']:
+    # load chromosome variants
 
-        # annotate all variants
-
-        annot_variants(args)
-
-        out_targ = pd.HDFStore(args['<out>'] + '.h5')
-
-        for locus in gens_loci:
-            print(f'running on {locus}')
-            gens = pd.read_hdf(gen_loci_file, locus)
-            chrom = str(gens['chrom'].tolist()[0])
-            if not chrom.startswith('chr'):
-                chrom = 'chr' + chrom
-            chr_variants = set(gens['pos'].tolist())
-
-            # save locations of PAM proximal variants to dictionary
-
-            pam_prox_vars = {}
-
-            # get variants within sgRNA region for 3 prime PAMs (20 bp upstream of for pos and vice versa)
-
-            for cas in cas_list:
-                if cas not in FULL_CAS_LIST:
-                    print(f'Skipping {cas}, not in CAS_LIST.txt')
-                    continue
-                current_cas = cas_obj.get_cas_enzyme(cas, os.path.join(cas_obj_path,'CAS_LIST.txt'))
-
-                if current_cas.primeness == "3'":
-                    print(current_cas.name)
-                    cas_prox_vars = []
-                    pam_dict = {}
-                    pam_for_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_for.npy')).tolist()
-                    pam_rev_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_rev.npy')).tolist()
-                    for pos in pam_for_pos:
-                        prox_vars = set(get_range_upstream(pos)) & chr_variants
-                        cas_prox_vars.extend(prox_vars)
-                        pam_dict[pos] = prox_vars
-                    for pos in pam_rev_pos:
-                        prox_vars = set(get_range_downstream(pos)) & chr_variants
-                        cas_prox_vars.extend(prox_vars)
-                        pam_dict[pos] = prox_vars
-                    pam_prox_vars[cas] = cas_prox_vars
-
-            # same for five prime pams
-
-                elif current_cas.primeness == "5'":
-                    print(current_cas.name)
-                    cas_prox_vars = []
-                    pam_dict = {}
-                    pam_for_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_for.npy')).tolist()
-                    pam_rev_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_rev.npy')).tolist()
-                    for pos in pam_for_pos:
-                        prox_vars = set(get_range_downstream(pos)) & chr_variants
-                        cas_prox_vars.extend(prox_vars)
-                        pam_dict[pos] = prox_vars
-                    for pos in pam_rev_pos:
-                        prox_vars = set(get_range_upstream(pos)) & chr_variants
-                        cas_prox_vars.extend(prox_vars)
-                        pam_dict[pos] = prox_vars
-                    pam_prox_vars[cas] = cas_prox_vars
-
-            chrdf = get_made_broke_pams(gens, chrom, ref_genome)
-
-            # make_break_df.to_hdf(os.path.join(out, f'chr{chrom}_make_break.hdf5'), 'all', complib='blosc')
-
-            for cas in cas_list:
-                # print(cas)
-                spec_pam_prox_vars = pam_prox_vars[cas]
-                chrdf[f'var_near_{cas}'] = chrdf['pos'].isin(spec_pam_prox_vars).astype(int)
-
-            out_targ.put(f'{locus}', chrdf, format='table', data_columns=True, complib='blosc')
+    gens = pd.read_hdf(gens, 'all')
+    chroms = dict(Counter(gens.chrom)).keys()
+    if len(chroms) > 1:
+        gens = split_gens(gens, list(chroms))
     else:
+        gens = [gens]
 
-        # load chromosome variants
+    #chrom = str(gens['chrom'].tolist()[0])
+    chroms = [ ''.join(['chr',str(ch)]) for ch in list(chroms) if not str(ch).startswith('chr') ]
+    # save locations of PAM proximal variants to dictionary
+    pam_prox_vars = {}
+    # get variants within sgRNA region for 3 prime PAMs (20 bp upstream of for pos and vice versa)
+    FULL_CAS_LIST = cas_obj.get_cas_list(os.path.join(cas_obj_path,'CAS_LIST.txt'))
 
-        gens = pd.read_hdf(gens, 'all')
-        chrom = str(gens['chrom'].tolist()[0])
-        if not chrom.startswith('chr'):
-            chrom = 'chr' + chrom
-        chr_variants = set(gens['pos'].tolist())
-
-        # save locations of PAM proximal variants to dictionary
-
-        pam_prox_vars = {}
-
-        # get variants within sgRNA region for 3 prime PAMs (20 bp upstream of for pos and vice versa)
-        FULL_CAS_LIST = cas_obj.get_cas_list(os.path.join(cas_obj_path,'CAS_LIST.txt'))
+    combined_df = []
+    for i, chrom in enumerate(chroms):
+        chr_variants = set(gens[i]['pos'].tolist())
 
         for cas in cas_list:
             if cas not in FULL_CAS_LIST:
@@ -350,12 +202,13 @@ def main(args):
                 continue
             current_cas = cas_obj.get_cas_enzyme(cas, os.path.join(cas_obj_path,'CAS_LIST.txt'))
 
+            print(current_cas.name)
+            cas_prox_vars = []
+            pam_dict = {}
+            pam_for_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_for.npy')).tolist()
+            pam_rev_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_rev.npy')).tolist()
+
             if current_cas.primeness == "3'":
-                print(current_cas.name)
-                cas_prox_vars = []
-                pam_dict = {}
-                pam_for_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_for.npy')).tolist()
-                pam_rev_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_rev.npy')).tolist()
                 for pos in pam_for_pos:
                     prox_vars = set(get_range_upstream(pos)) & chr_variants
                     cas_prox_vars.extend(prox_vars)
@@ -364,16 +217,8 @@ def main(args):
                     prox_vars = set(get_range_downstream(pos)) & chr_variants
                     cas_prox_vars.extend(prox_vars)
                     pam_dict[pos] = prox_vars
-                pam_prox_vars[cas] = cas_prox_vars
-
-        # same for five prime pams
 
             elif current_cas.primeness == "5'":
-                print(current_cas.name)
-                cas_prox_vars = []
-                pam_dict = {}
-                pam_for_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_for.npy')).tolist()
-                pam_rev_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_rev.npy')).tolist()
                 for pos in pam_for_pos:
                     prox_vars = set(get_range_downstream(pos)) & chr_variants
                     cas_prox_vars.extend(prox_vars)
@@ -382,11 +227,10 @@ def main(args):
                     prox_vars = set(get_range_upstream(pos)) & chr_variants
                     cas_prox_vars.extend(prox_vars)
                     pam_dict[pos] = prox_vars
-                pam_prox_vars[cas] = cas_prox_vars
 
-        chrdf = get_made_broke_pams(gens, chrom, ref_genome)
+            pam_prox_vars[cas] = cas_prox_vars
 
-        # make_break_df.to_hdf(os.path.join(out, f'chr{chrom}_make_break.hdf5'), 'all', complib='blosc')
+        chrdf = get_made_broke_pams(gens[i], chrom, ref_genome)
 
         for cas in cas_list:
             # print(cas)
@@ -399,8 +243,10 @@ def main(args):
             cas_cols.extend(prelim_cols)
         keepcols = ['chrom','pos','ref','alt'] + cas_cols 
         chrdf = chrdf[keepcols]
+        combined_df.append(chrdf)
 
-        chrdf.to_hdf(f'{out}.hdf5', 'all', mode='w', format='table', data_columns=True, complib='blosc')
+    combined_df = pd.concat(combined_df)
+    combined_df.to_hdf(f'{out}.hdf5', 'all', mode='w', format='table', data_columns=True, complib='blosc')
 
 
 if __name__ == '__main__':
@@ -408,4 +254,8 @@ if __name__ == '__main__':
     if arguments['--cas-list']:
         cas_obj.print_cas_types()
         exit()
+    if arguments['-v']:
+        logging.basicConfig(level=logging.INFO, format='[%(asctime)s %(name)s:%(levelname)s ]%(message)s')
+    else:
+        logging.basicConfig(level=logging.ERROR, format='[%(asctime)s %(name)s:%(levelname)s ]%(message)s')
     main(arguments)
