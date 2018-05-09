@@ -7,6 +7,7 @@ Kathleen Keough et al 2018.
 
 Usage:
     gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor] [<ref_gen>] [--hom] [--bed] [--max_indel=<S>]
+    gen_sgRNAs.py -C | --cas-list
 
 Arguments:
     bcf                 BCF/VCF file with genotypes.
@@ -32,10 +33,7 @@ Options:
     --max_indel=<S>     Maximum size for INDELS. Must be smaller than guide_length [default: 5].
     -r                  Return guides in as RNA sequences rather than DNA sequences.
     -d                  Return dummy guides for variants without a PAM, e.g. when variant makes or breaks a PAM. 
-
-Available cas types:
-cpf1, SpCas9, SpCas9_VRER, SpCas9_EQR, SpCas9_VQR_1, SpCas9_VQR_2, 
-StCas9, StCas9_2, SaCas9, SaCas9_KKH, nmCas9, cjCas9
+    -C --cas-list       List avalibe cas types and exits.
 
 """
 
@@ -261,10 +259,13 @@ def filter_out_N_in_PAM(outdf, cas_ins):
     """
     Using the given cas list, find N indexes and remove rows with N's.
     """
+    filt = []
     for cas in cas_ins:
         current_cas = cas_object.get_cas_enzyme(cas)
         n_index = [i for i, l in enumerate(current_cas.forwardPam[::-1]) if l == 'N']
-        outdf = outdf[~(outdf['variant_position_in_guide'].isin(n_index)) & (outdf['cas_type'] == cas)]
+        filt += [i for i, row in outdf.iterrows() if row['variant_position_in_guide'] in n_index and row['cas_type'] == cas]
+        #outdf = outdf[~(outdf['variant_position_in_guide'].isin(n_index)) & (outdf['cas_type'] == cas)]
+    outdf = outdf.drop(filt)
     return outdf
 
 
@@ -914,11 +915,12 @@ def main(args):
     if args['--bed']:
         logging.info('Running as multi-locus, assumes BED file given.')
         if not args['<locus>'].endswith('.bed'):
-            logging.info('Error: Must use BED file in place of locus for --bed run. Exiting.')
+            logging.error('Error: Must use BED file in place of locus for --bed run. Exiting.')
             exit(1)
         else:
             out = multilocus_guides(args)
             out = filter_out_N_in_PAM(out, CAS_LIST)
+
     # initiates personalized guide design for single locus
     elif args['--hom']:
         logging.info('Finding non-allele-specific guides.')
@@ -928,7 +930,6 @@ def main(args):
         logging.info('Finding allele-specific guides.')
         out = get_allele_spec_guides(args)
         out = filter_out_N_in_PAM(out, CAS_LIST)
-    
 
     # assign unique identifier to each sgRNA
     out['guide_id'] = 'guide' + out.index.astype(str)
@@ -961,6 +962,9 @@ def main(args):
 
 if __name__ == '__main__':
     arguments = docopt(__doc__, version=__version__)
+    if arguments['--cas-list']:
+        cas_obj.print_cas_types()
+        exit()
     if arguments['-v']:
         logging.basicConfig(level=logging.INFO, format='[%(asctime)s %(name)s:%(levelname)s ]%(message)s')
     else:
