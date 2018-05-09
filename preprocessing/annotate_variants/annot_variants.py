@@ -6,7 +6,7 @@ the specified locus and genome that tell us whether the variant generates allele
 sgRNA sites for the Cas variety/varieties specified. Written in Python v 3.6.1.
 Kathleen Keough et al. 2018.
 Usage:
-    annot_variants.py <gens_file> <cas> <pams_dir> <ref_genome_fasta> <out> [--bed]
+    annot_variants.py [-v] <gens_file> <cas> <pams_dir> <ref_genome_fasta> <out> [--guide_len=<S>]
     annot_variants.py -C | --cas-list
 
 Arguments:
@@ -18,12 +18,13 @@ Arguments:
 Options:
     -C --cas-list       List avalibe cas types and exits.
     -v                  Verbose mode.
+    --guide_len=<S>     Guide length, commonly 20 bp, for annotating guides near a PAM [default: 20].
 """
 
 import pandas as pd
 import numpy as np
 from docopt import docopt
-import os, sys
+import os, sys, logging
 from collections import Counter
 from pyfaidx import Fasta
 import regex
@@ -40,23 +41,23 @@ sys.path.append(cas_obj_path)
 import cas_object as cas_obj
 
 
-def get_range_upstream(pam_pos):
+def get_range_upstream(pam_pos, guide_len):
     """
-    Get positions 20 bp upstream, i.e. for forward 3' PAMs or reverse 5' PAMs
+    Get positions N bp upstream, i.e. for forward 3' PAMs or reverse 5' PAMs
     :param pam_pos: position of PAM, int.
     :return: sgRNA seed region positions, set of ints.
     """
-    sgrna = set(range(pam_pos - 21, pam_pos))
+    sgrna = set(range(pam_pos - (guide_len+1), pam_pos))
     return sgrna
 
 
-def get_range_downstream(pam_pos):
+def get_range_downstream(pam_pos, guide_len):
     """
-    Get positions 20 bp downstream, i.e. for forward 5' PAMs or reverse 3' PAMs
+    Get positions N bp downstream, i.e. for forward 5' PAMs or reverse 3' PAMs
     :param pam_pos: position of PAM, int.
     :return: sgRNA seed region positions, set of ints.
     """
-    sgrna = set(range(pam_pos + 1, pam_pos + 21))
+    sgrna = set(range(pam_pos + 1, pam_pos + (guide_len+1)))
     return sgrna
 
 
@@ -161,32 +162,38 @@ def split_gens(gens_df, chroms):
     Takes in a gens file with multiple loci, and splits it based on chromosome.
     :param gens_df: gens dataframe.
     :param chroms: list of chromosome notations.
-    :return: list of dataframse, each dataframe with one chromosome notation.
+    :return: list of dataframse, each dataframe with one chromosome notation at the CHROM column.
     """
     return [ gens_df.loc[gens_df['chrom'] == c] for c in chroms]
 
 
-
 def main(args):
+    logging.info(args)
     out = args['<out>']
     pams_dir = args['<pams_dir>']
     gens = args['<gens_file>']
+    guide_len = int(args['--guide_len'])
     ref_genome = Fasta(args['<ref_genome_fasta>'], as_raw=True)
 
     global cas_list
     cas_list = list(args['<cas>'].split(','))
 
-    # load chromosome variants
-
+    # Read in gens and chroms file, and see if gens file needs to be split.
     gens = pd.read_hdf(gens, 'all')
     chroms = dict(Counter(gens.chrom)).keys()
+
     if len(chroms) > 1:
         gens = split_gens(gens, list(chroms))
     else:
         gens = [gens]
 
-    #chrom = str(gens['chrom'].tolist()[0])
     chroms = [ ''.join(['chr',str(ch)]) for ch in list(chroms) if not str(ch).startswith('chr') ]
+
+    # Add check to make sure the correct FASTA file was loaded.
+    if set(chroms) != set(list(ref_genome.keys())):
+        logging.error(f"{args['<gens_file>']} chromosomes/notations differ from {args['<ref_genome_fasta>']}: {chroms} and {list(ref_genome.keys())}.")
+        exit(1)
+
     # save locations of PAM proximal variants to dictionary
     pam_prox_vars = {}
     # get variants within sgRNA region for 3 prime PAMs (20 bp upstream of for pos and vice versa)
@@ -198,11 +205,11 @@ def main(args):
 
         for cas in cas_list:
             if cas not in FULL_CAS_LIST:
-                print(f'Skipping {cas}, not in CAS_LIST.txt')
+                logging.info(f'Skipping {cas}, not in CAS_LIST.txt')
                 continue
             current_cas = cas_obj.get_cas_enzyme(cas, os.path.join(cas_obj_path,'CAS_LIST.txt'))
 
-            print(current_cas.name)
+            logging.info(f"Evaluating {current_cas.name} at {chrom}.")
             cas_prox_vars = []
             pam_dict = {}
             pam_for_pos = np.load(os.path.join(pams_dir, f'{chrom}_{cas}_pam_sites_for.npy')).tolist()
@@ -210,21 +217,21 @@ def main(args):
 
             if current_cas.primeness == "3'":
                 for pos in pam_for_pos:
-                    prox_vars = set(get_range_upstream(pos)) & chr_variants
+                    prox_vars = set(get_range_upstream(pos, guide_len)) & chr_variants
                     cas_prox_vars.extend(prox_vars)
                     pam_dict[pos] = prox_vars
                 for pos in pam_rev_pos:
-                    prox_vars = set(get_range_downstream(pos)) & chr_variants
+                    prox_vars = set(get_range_downstream(pos, guide_len)) & chr_variants
                     cas_prox_vars.extend(prox_vars)
                     pam_dict[pos] = prox_vars
 
             elif current_cas.primeness == "5'":
                 for pos in pam_for_pos:
-                    prox_vars = set(get_range_downstream(pos)) & chr_variants
+                    prox_vars = set(get_range_downstream(pos, guide_len)) & chr_variants
                     cas_prox_vars.extend(prox_vars)
                     pam_dict[pos] = prox_vars
                 for pos in pam_rev_pos:
-                    prox_vars = set(get_range_upstream(pos)) & chr_variants
+                    prox_vars = set(get_range_upstream(pos, guide_len)) & chr_variants
                     cas_prox_vars.extend(prox_vars)
                     pam_dict[pos] = prox_vars
 
@@ -247,7 +254,7 @@ def main(args):
 
     combined_df = pd.concat(combined_df)
     combined_df.to_hdf(f'{out}.hdf5', 'all', mode='w', format='table', data_columns=True, complib='blosc')
-
+    logging.info('Done.')
 
 if __name__ == '__main__':
     arguments = docopt(__doc__, version=__version__)
