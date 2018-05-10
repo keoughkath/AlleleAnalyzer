@@ -7,3 +7,4 @@ regex
 Biopython
 bcftools>=1.5
 pulp
+pytables
