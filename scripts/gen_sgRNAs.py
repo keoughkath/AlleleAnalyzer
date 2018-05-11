@@ -57,8 +57,8 @@ __version__ = '0.0.1'
 
 REQUIRED_BCFTOOLS_VER = '1.5'
 
-COLUMN_ORDER=['chrom','variant_position','ref','alt','gRNA_ref','gRNA_alt',
-'variant_position_in_guide','start','stop','strand','cas_type','guide_id','rsID','AF']
+# COLUMN_ORDER=['chrom','variant_position','ref','alt','gRNA_ref','gRNA_alt',
+# 'variant_position_in_guide','start','stop','strand','cas_type','guide_id','rsID','AF']
 # get rid of annoying false positive Pandas error
 
 pd.options.mode.chained_assignment = None
@@ -489,6 +489,8 @@ def get_allele_spec_guides(args):
     # add specificity scores if specified
     if args['--crispor']:
         out = get_crispor_scores(grna_df, args['<out>'], args['--crispor'])
+    else:
+        out = grna_df
     # get rsID and AF info if provided
     if args['<gene_vars>']:
         gene_vars = pd.read_hdf(args['<gene_vars>'])
@@ -496,8 +498,8 @@ def get_allele_spec_guides(args):
             gene_vars['chrom'] = list(map(lambda x: 'chr' + str(x), gene_vars['chrom']))
         gene_vars = gene_vars.rename(index=str, columns={"pos": "variant_position"})
 
-        grna_df = grna_df.merge(gene_vars, how='left', on=['chrom','variant_position','ref','alt'])
-    return grna_df
+        out = out.merge(gene_vars, how='left', on=['chrom','variant_position','ref','alt'])
+    return out
 
 
 def norm_chr(chrom_str, vcf_chrom):
@@ -932,6 +934,7 @@ def main(args):
 
     # assign unique identifier to each sgRNA
     out['guide_id'] = 'guide' + out.index.astype(str)
+    print(out.head())
 
     # convert to RNA
     if args['-r']:
@@ -945,16 +948,17 @@ def main(args):
                     out.ix[i,col] = '-'
     
     # add variant descriptors from 1KGP to assembled guides (optional)
-    if args['<gene_vars>']:
-        for i, row in out.iterrows():
-            if pd.isnull(row['rsID']):
-                out.ix[i,'rsID'] = ':'.join([row['chrom'],str(row['variant_position']),row['ref'], row['alt']])
-                out.ix[i,'AF'] = 0
-        out = out[COLUMN_ORDER]
-    else:
-        out = out[COLUMN_ORDER[:-2]] # Exclude rsID and AF rows
+    # if args['<gene_vars>'] != None:
+    #     for i, row in out.iterrows():
+    #         if pd.isnull(row['rsID']):
+    #             out.ix[i,'rsID'] = ':'.join([row['chrom'],str(row['variant_position']),row['ref'], row['alt']])
+    #             out.ix[i,'AF'] = 0
+    #     out = out[COLUMN_ORDER]
+    # else:
+    #     # out = out[COLUMN_ORDER[:-2]] # Exclude rsID and AF rows
 
     # saves output
+    print(out.head())
     out.to_csv(args['<out>'] + '_guides.tsv', sep='\t', index=False)
     logging.info('Done.')
 
