@@ -366,9 +366,9 @@ def get_allele_spec_guides(args):
 
                 grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, row['ref'], row['alt'], guide_length, ref_genome, var_type='near_pam')
 
-                chrom = chrom.replace('chr','')
+                chrom = norm_chr(chrom, chrstart)
                 grna_dicts.append(dict(zip(['chrom','start','stop','ref','alt','variant_position_in_guide','gRNA_ref','gRNA_alt','variant_position',
-                    'strand','cas_type'],['chr'+str(chrom), (pam_site - guide_length - 1), (pam_site - 1), row['ref'], row['alt'],
+                    'strand','cas_type'],[str(chrom), (pam_site - guide_length - 1), (pam_site - 1), row['ref'], row['alt'],
                     (pam_site - var - 1 + pam_length), grna_ref_seq, grna_alt_seq, var, '+', cas])))
 
             proximal_sites_rev = list(range(row['pos']-guide_length,row['pos']))
@@ -380,9 +380,9 @@ def get_allele_spec_guides(args):
                 if not args['-c']:
                     grna_ref_seq, grna_alt_seq = make_rev_comp(grna_ref_seq), make_rev_comp(grna_alt_seq)
 
-                chrom = chrom.replace('chr','')
+                chrom = norm_chr(chrom, chrstart)
                 grna_dicts.append(dict(zip(['chrom','start','stop','ref','alt','variant_position_in_guide','gRNA_ref','gRNA_alt','variant_position',
-                    'strand','cas_type'], ['chr'+str(chrom), pam_site, pam_site + guide_length, row['ref'], row['alt'],
+                    'strand','cas_type'], [str(chrom), pam_site, pam_site + guide_length, row['ref'], row['alt'],
                     var - pam_site + pam_length - 1, grna_ref_seq, grna_alt_seq, var, '-', cas])))
         # design guides for heterozygous variants that destroy PAMs 
         for index, row in vars_destroy_pam.iterrows():
@@ -416,8 +416,9 @@ def get_allele_spec_guides(args):
                 grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome, 
                     var_type='destroys_pam')
 
+                chrom = norm_chr(chrom, chrstart)
                 grna_dicts.append(dict(zip(['chrom','start','stop','ref','alt','variant_position_in_guide','gRNA_ref','gRNA_alt',
-                    'variant_position','strand','cas_type'],['chr'+str(chrom), (pam_site - guide_length), (pam_site), row['ref'], 
+                    'variant_position','strand','cas_type'],[str(chrom), (pam_site - guide_length), (pam_site), row['ref'], 
                     row['alt'],(pam_site + pam_length - var), grna_ref_seq, grna_alt_seq, var, '+', cas])))
 
             for pam in lost_pams_rev:
@@ -430,8 +431,9 @@ def get_allele_spec_guides(args):
                 if not args['-c']:
                     grna_ref_seq, grna_alt_seq = make_rev_comp(grna_ref_seq), make_rev_comp(grna_alt_seq)
 
+                chrom = norm_chr(chrom, chrstart)
                 grna_dicts.append(dict(zip(['chrom','start','stop','ref','alt','variant_position_in_guide','gRNA_ref','gRNA_alt',
-                    'variant_position','strand','cas_type'],['chr'+str(chrom), (pam_site), (pam_site + guide_length), ref_allele, 
+                    'variant_position','strand','cas_type'],[str(chrom), (pam_site), (pam_site + guide_length), ref_allele, 
                     alt_allele,(var - pam_site + pam_length - 1), grna_ref_seq, grna_alt_seq, var, '-', cas])))
 
         # design guides for heterozygous variants that make PAMs 
@@ -465,8 +467,9 @@ def get_allele_spec_guides(args):
                 grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome, 
                     var_type='makes_pam')
 
+                chrom = norm_chr(chrom, chrstart)
                 grna_dicts.append(dict(zip(['chrom','start','stop','ref','alt','variant_position_in_guide','gRNA_ref','gRNA_alt',
-                    'variant_position','strand','cas_type'],['chr'+str(chrom), (pam_site - guide_length), (pam_site), row['ref'], 
+                    'variant_position','strand','cas_type'],[str(chrom), (pam_site - guide_length), (pam_site), row['ref'], 
                     row['alt'],(pam_site + pam_length - var), grna_ref_seq, grna_alt_seq, var, '+', cas])))
 
             for pam in made_pams_rev:
@@ -479,8 +482,9 @@ def get_allele_spec_guides(args):
                 if not args['-c']:
                     grna_ref_seq, grna_alt_seq = make_rev_comp(grna_ref_seq), make_rev_comp(grna_alt_seq)
 
+                chrom = norm_chr(chrom, chrstart)
                 grna_dicts.append(dict(zip(['chrom','start','stop','ref','alt','variant_position_in_guide','gRNA_ref','gRNA_alt',
-                    'variant_position','strand','cas_type'],['chr'+str(chrom), (pam_site), (pam_site + guide_length), ref_allele, 
+                    'variant_position','strand','cas_type'],[str(chrom), (pam_site), (pam_site + guide_length), ref_allele, 
                     alt_allele,(var - pam_site + pam_length - 1), grna_ref_seq, grna_alt_seq, var, '-', cas])))
 
 
@@ -492,20 +496,19 @@ def get_allele_spec_guides(args):
     else:
         out = grna_df
     # get rsID and AF info if provided
+    # I'm not convinced this part is working correctly, there might be an issue with ref/alt, need to check
     if args['<gene_vars>']:
         gene_vars = pd.read_hdf(args['<gene_vars>'])
-        if not str(gene_vars['chrom'].tolist()[0]).startswith('chr'):
-            gene_vars['chrom'] = list(map(lambda x: 'chr' + str(x), gene_vars['chrom']))
+        gene_vars['chrom'] = [ norm_chr(chrom, chrstart) for chrom in gene_vars['chrom'].tolist() ]
         gene_vars = gene_vars.rename(index=str, columns={"pos": "variant_position"})
-
         out = out.merge(gene_vars, how='left', on=['chrom','variant_position','ref','alt'])
     return out
 
 
 def norm_chr(chrom_str, vcf_chrom):
     chrom_str = str(chrom_str)
-    if vcf_chrom:
-        return chrom_str.replace('chr','')
+    if vcf_chrom and not chrom_str.startswith('chr'):
+        return 'chr' + chrom_str
     elif not vcf_chrom and chrom_str.startswith('chr'):
         return chrom_str.replace('chr','')
     else:
@@ -624,7 +627,7 @@ def get_guides(args, locus):
     hom_gens = gens.query('not het').copy()
     het_variants = set(het_gens.pos.tolist())
     hom_variants = set(hom_gens.pos.tolist())
-    print('There are ' + str(len(het_variants)) + ' heterozygous variants and \
+    logging.info('There are ' + str(len(het_variants)) + ' heterozygous variants and \
         ' + str(len(hom_variants)) + ' homozygous variants in this locus in this genome.')
 
     # merge annots and genotypes
@@ -934,31 +937,27 @@ def main(args):
 
     # assign unique identifier to each sgRNA
     out['guide_id'] = 'guide' + out.index.astype(str)
-    print(out.head())
 
     # convert to RNA
     if args['-r']:
         out['gRNA_ref'] = out['gRNA_ref'].map(lambda x: x.replace('T','U'))
         out['gRNA_alt'] = out['gRNA_alt'].map(lambda x: x.replace('T','U'))
 
-    if not args['-d']:
-        for i, row in out.iterrows():
-            for col in ['gRNA_ref', 'gRNA_alt']:
-                if row[col] == len(row[col]) * row[col][0]:
-                    out.ix[i,col] = '-'
+    if args['-d']:
+        replace_dummy = {'C'*20:'-'*20,'G'*20:'-'*20}
+        out['gRNA_ref'] = out['gRNA_ref'].replace(replace_dummy)
     
     # add variant descriptors from 1KGP to assembled guides (optional)
     # if args['<gene_vars>'] != None:
     #     for i, row in out.iterrows():
     #         if pd.isnull(row['rsID']):
     #             out.ix[i,'rsID'] = ':'.join([row['chrom'],str(row['variant_position']),row['ref'], row['alt']])
-    #             out.ix[i,'AF'] = 0
-    #     out = out[COLUMN_ORDER]
+    #             out.ix[i,'AF'] = 0 
+        # out = out[COLUMN_ORDER]
     # else:
-    #     # out = out[COLUMN_ORDER[:-2]] # Exclude rsID and AF rows
+        # out = out[COLUMN_ORDER[:-2]] # Exclude rsID and AF rows
 
     # saves output
-    print(out.head())
     out.to_csv(args['<out>'] + '_guides.tsv', sep='\t', index=False)
     logging.info('Done.')
 
