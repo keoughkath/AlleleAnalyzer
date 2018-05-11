@@ -6,7 +6,7 @@ Written in Python v 3.6.1.
 Kathleen Keough et al 2018.
 
 Usage:
-    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor] [<ref_gen>] [--hom] [--bed] [--max_indel=<S>]
+    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=crispor_gen] [--hom] [--bed] [--max_indel=<S>]
 
 Arguments:
     bcf                 BCF/VCF file with genotypes.
@@ -25,7 +25,7 @@ Options:
     -v                  Run in verbose mode (especially useful for debugging, but also for knowing status of script)
     --hom               Use 'homozygous' mode, which is basically finding all CRISPR sites (non-allele-specific) in a more personalized
                         way by taking in individual variants.
-    --crispor           Add CRISPOR specificity scores to outputted guides. From Haeussler et al. Genome Biology 2016.
+    --crispor=crispor_gen           Add CRISPOR specificity scores to outputted guides. From Haeussler et al. Genome Biology 2016.
     ref_gen             Directory name of reference genome (complete) which can be downloaded from UCSC (see wiki). This is required
                         if you specify --crispor
     --bed               Design sgRNAs for multiple regions specified in a BED file.
@@ -216,8 +216,8 @@ def get_crispor_scores(out_df, outdir, ref_gen):
     score_dir_alt = pd.read_csv('nosave_alt_scores.tsv', sep='\t', header=None, names=['seqId','guideId','targetSeq',
         'mitSpecScore','offtargetCount','targetGenomeGeneLocus'])
     # remove original score files
-    # os.remove('nosave_ref_scores.tsv')
-    # os.remove('nosave_alt_scores.tsv')
+    os.remove('nosave_ref_scores.tsv')
+    os.remove('nosave_alt_scores.tsv')
     # merge score info with original out_df
     merge_df_ref = pd.DataFrame()
     merge_df_ref['scores_ref'] = score_dir_ref['mitSpecScore']
@@ -488,7 +488,7 @@ def get_allele_spec_guides(args):
 
     # add specificity scores if specified
     if args['--crispor']:
-        out = get_crispor_scores(grna_df, out, args['<ref_gen>'])
+        out = get_crispor_scores(grna_df, args['<out>'], args['--crispor'])
     # get rsID and AF info if provided
     if args['<gene_vars>']:
         gene_vars = pd.read_hdf(args['<gene_vars>'])
