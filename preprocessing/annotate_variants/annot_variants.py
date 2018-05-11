@@ -198,15 +198,16 @@ def main(args):
     pam_prox_vars = {}
     # get variants within sgRNA region for 3 prime PAMs (20 bp upstream of for pos and vice versa)
     FULL_CAS_LIST = cas_obj.get_cas_list(os.path.join(cas_obj_path,'CAS_LIST.txt'))
+    for cas in cas_list:
+        if cas not in FULL_CAS_LIST:
+            logging.info(f'Skipping {cas}, not in CAS_LIST.txt')
+            cas_list.remove(cas)
 
     combined_df = []
     for i, chrom in enumerate(chroms):
         chr_variants = set(gens[i]['pos'].tolist())
 
         for cas in cas_list:
-            if cas not in FULL_CAS_LIST:
-                logging.info(f'Skipping {cas}, not in CAS_LIST.txt')
-                continue
             current_cas = cas_obj.get_cas_enzyme(cas, os.path.join(cas_obj_path,'CAS_LIST.txt'))
 
             logging.info(f"Evaluating {current_cas.name} at {chrom}.")
