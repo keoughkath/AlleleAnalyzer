@@ -191,7 +191,7 @@ def main(args):
     else:
         gens = [gens]
 
-    chroms = [ ''.join(['chr',str(ch)]) for ch in list(chroms) if not str(ch).startswith('chr') ]
+    chroms = [ ''.join(['chr',str(ch)]) if not str(ch).startswith('chr') else ch for ch in list(chroms) ]
 
     # Add check to make sure the correct FASTA file was loaded.
     if set(chroms) != set(list(ref_genome.keys())):
