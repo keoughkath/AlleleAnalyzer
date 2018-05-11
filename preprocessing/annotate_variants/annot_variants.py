@@ -149,7 +149,11 @@ def get_made_broke_pams(df, chrom, ref_genome):
     :param ref_genome: ref_genome fasta, pyfaidx format.
     :return: dataframe with indicators for whether each variant makes/breaks PAMs, pd df.
     """
+    FULL_CAS_LIST = cas_obj.get_cas_list(os.path.join(cas_obj_path,'CAS_LIST.txt'))
     for cas in cas_list:
+        if cas not in FULL_CAS_LIST:
+            logging.info(f'Skipping {cas}, not in CAS_LIST.txt')
+            continue
         current_cas = cas_obj.get_cas_enzyme(cas, os.path.join(cas_obj_path,'CAS_LIST.txt'))
 
         makes, breaks = zip(*df.apply(lambda row: makes_breaks_pam(current_cas, chrom, row['pos'], row['ref'], row['alt'], ref_genome), axis=1))
@@ -198,15 +202,15 @@ def main(args):
     pam_prox_vars = {}
     # get variants within sgRNA region for 3 prime PAMs (20 bp upstream of for pos and vice versa)
     FULL_CAS_LIST = cas_obj.get_cas_list(os.path.join(cas_obj_path,'CAS_LIST.txt'))
+    for cas in cas_list:
+        if cas not in FULL_CAS_LIST:
+            logging.info(f'Skipping {cas}, not in CAS_LIST.txt')
+            cas_list.remove(cas)
 
     combined_df = []
     for i, chrom in enumerate(chroms):
         chr_variants = set(gens[i]['pos'].tolist())
-
         for cas in cas_list:
-            if cas not in FULL_CAS_LIST:
-                logging.info(f'Skipping {cas}, not in CAS_LIST.txt')
-                continue
             current_cas = cas_obj.get_cas_enzyme(cas, os.path.join(cas_obj_path,'CAS_LIST.txt'))
 
             logging.info(f"Evaluating {current_cas.name} at {chrom}.")
