@@ -40,6 +40,18 @@ sys.path.append(cas_obj_path)
 # Import cas_object
 import cas_object as cas_obj
 
+def norm_chr(chrom_str, gens_chrom):
+    """
+    Returns the chromosome string that matches the chromosome annotation of the input gens file
+    """
+    chrom_str = str(chrom_str)
+    if not gens_chrom:
+        return chrom_str.replace('chr','')
+    elif gens_chrom and not chrom_str.startswith('chr'):
+        return 'chr' + chrom_str
+    else:
+        return chrom_str
+
 
 def get_range_upstream(pam_pos, guide_len):
     """
@@ -191,7 +203,8 @@ def main(args):
     else:
         gens = [gens]
 
-    chroms = [ ''.join(['chr',str(ch)]) if not str(ch).startswith('chr') else ch for ch in list(chroms) ]
+    fasta_chrom = list(ref_genome.keys())[0].startswith('chr')
+    chroms = [ norm_chr(ch,fasta_chrom) for ch in list(chroms) ]
 
     # Add check to make sure the correct FASTA file was loaded.
     if set(chroms) != set(list(ref_genome.keys())):
