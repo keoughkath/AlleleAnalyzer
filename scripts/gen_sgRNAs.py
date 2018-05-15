@@ -263,10 +263,10 @@ def filter_out_N_in_PAM(outdf, cas_ins):
     for cas in cas_ins:
         current_cas = cas_object.get_cas_enzyme(cas)
         if current_cas.primeness == "5'":
-            en_PAM = current_cas.forwardPam
+            PAM_sequence = current_cas.forwardPam
         else:
-            en_PAM = current_cas.forwardPam[::-1]
-        n_index = [i for i, l in enumerate(en_PAM) if l == 'N']
+            PAM_sequence = current_cas.forwardPam[::-1]
+        n_index = [i for i, l in enumerate(PAM_sequence) if l == 'N']
         filt += [i for i, row in outdf.iterrows() if row['variant_position_in_guide'] in n_index and row['cas_type'] == cas]
     outdf = outdf.drop(filt)
     return outdf
