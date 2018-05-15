@@ -39,16 +39,6 @@ def norm_chr(chrom_str, vcf_chrom):
 	else:
 		return chrom_str
 
-
-# def norm_chr(chrom_str, vcf_chrom):
-# 	chrom_str = str(chrom_str)
-# 	if vcf_chrom:
-# 		return chrom_str.replace('chr','')
-# 	elif not vcf_chrom and chrom_str.startswith('chr'):
-# 		return chrom_str.replace('chr','')
-# 	else:
-# 		return chrom_str
-
 def check_bcftools():
 	""" 
 	Checks bcftools version, and exits the program if the version is incorrect
