@@ -32,12 +32,22 @@ REQUIRED_BCFTOOLS_VER = 1.5
 
 def norm_chr(chrom_str, vcf_chrom):
 	chrom_str = str(chrom_str)
-	if vcf_chrom:
+	if not vcf_chrom:
 		return chrom_str.replace('chr','')
-	elif not vcf_chrom and chrom_str.startswith('chr'):
-		return chrom_str.replace('chr','')
+	elif vcf_chrom and not chrom_str.startswith('chr'):
+		return 'chr' + chrom_str
 	else:
 		return chrom_str
+
+
+# def norm_chr(chrom_str, vcf_chrom):
+# 	chrom_str = str(chrom_str)
+# 	if vcf_chrom:
+# 		return chrom_str.replace('chr','')
+# 	elif not vcf_chrom and chrom_str.startswith('chr'):
+# 		return chrom_str.replace('chr','')
+# 	else:
+# 		return chrom_str
 
 def check_bcftools():
 	""" 
@@ -63,13 +73,11 @@ def fix_multiallelics(cell):
 		cell = re.split(';|,', cell)[0]
 	return cell
 
-
 def het(genotype):
 	# if genotype == '.':
 	# 	return False
 	gen1, gen2 = re.split('/|\|',genotype)
 	return gen1 != gen2
-
 
 def filter_hets(gens_df):
 	"""
@@ -188,14 +196,11 @@ def main(args):
 		chrom = locus.split(':')[0]
 		# get locus info
 		# check whether chromosome in VCF file includes "chr" in chromosome
-		vcf_chrom = str(subprocess.Popen(f'bcftools view -H {vcf_in} | cut -f1 | head -1', shell=True, 
-			stdout=subprocess.PIPE).communicate()[0])
+		vcf_chrom = subprocess.Popen(f'bcftools view -H {vcf_in} | cut -f1 | head -1', shell=True, 
+			stdout=subprocess.PIPE).communicate()[0].decode("utf-8").strip()
 		# See if chrom contains chr
-		if vcf_chrom.startswith('chr'):
-			chrstart = True
-		else:
-			chrstart = False
-		chrom = norm_chr(chrom, chrstart)
+		vcf_chrom = vcf_chrom.startswith('chr')
+		chrom = norm_chr(chrom, vcf_chrom)
 
 		# properly formatted locus string
 		locus=f'{chrom}:'+locus.split(':')[1]
