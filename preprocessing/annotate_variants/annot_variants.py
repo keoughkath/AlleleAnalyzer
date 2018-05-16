@@ -16,7 +16,7 @@ Arguments:
     ref_genome_fasta    Fasta file for reference genome.
     out                 Prefix for output files.
 Options:
-    -C --cas-list       List avalibe cas types and exits.
+    -C --cas-list       List available cas types and exits.
     -v                  Verbose mode.
     --guide_len=<S>     Guide length, commonly 20 bp, for annotating guides near a PAM [default: 20].
 """
