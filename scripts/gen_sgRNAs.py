@@ -7,6 +7,7 @@ Kathleen Keough et al 2018.
 
 Usage:
     gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor] [<ref_gen>] [--hom] [--bed] [--max_indel=<S>]
+    gen_sgRNAs.py -C | --cas-list
 
 Arguments:
     bcf                 BCF/VCF file with genotypes.
@@ -32,10 +33,7 @@ Options:
     --max_indel=<S>     Maximum size for INDELS. Must be smaller than guide_length [default: 5].
     -r                  Return guides in as RNA sequences rather than DNA sequences.
     -d                  Return dummy guides for variants without a PAM, e.g. when variant makes or breaks a PAM. 
-
-Available cas types:
-cpf1, SpCas9, SpCas9_VRER, SpCas9_EQR, SpCas9_VQR_1, SpCas9_VQR_2, 
-StCas9, StCas9_2, SaCas9, SaCas9_KKH, nmCas9, cjCas9
+    -C --cas-list       List avalibe cas types and exits.
 
 """
 
@@ -113,7 +111,7 @@ def check_bcftools():
         logging.info(f'bcftools version {version} running')
 
     else: 
-        logging.info(f"Error: bcftools must be >={REQUIRED_BCFTOOLS_VER}. Current version: {version}")
+        logging.error(f"Error: bcftools must be >={REQUIRED_BCFTOOLS_VER}. Current version: {version}")
         exit(1)
 
 
@@ -241,17 +239,17 @@ def verify_hdf_files(gen_file, annots_file, chrom, start, stop, max_indel):
     start, stop = int(start), int(stop)
     comp = ['chrom', 'pos', 'ref', 'alt']
     if not gen_file[comp].equals(annots_file[comp]):
-        logging.info('ERROR: gen file and targ file variants do not match.')
+        logging.error('ERROR: gen file and targ file variants do not match.')
         exit(1)
     #Check chr
     if not len(Counter(gen_file['chrom']).keys()) == 1:
-        logging.info("ERROR: variants map to different chromosomes") # Should exit?
+        logging.error("ERROR: variants map to different chromosomes") # Should exit?
         exit(0)
     # Check vars
     if not all(start < int(i) < stop  for i in gen_file['pos']):
         logging.info('Warning: Not all variants are between the defined ranges')
     if not any(start < int(i) < stop  for i in gen_file['pos']):
-        logging.info('ERROR: no variants in defined range.')
+        logging.error('ERROR: no variants in defined range.')
     # Iterate through the gens file, remove all rows with indels larger than 'max_indel' (in both the re and alt).
     indel_too_large = [ all(len(i) <= max_indel for i in (row['ref'],row['alt'])) for _, row in gen_file.iterrows() ]
     return gen_file[indel_too_large], annots_file[indel_too_large]
@@ -261,10 +259,16 @@ def filter_out_N_in_PAM(outdf, cas_ins):
     """
     Using the given cas list, find N indexes and remove rows with N's.
     """
+    filt = []
     for cas in cas_ins:
         current_cas = cas_object.get_cas_enzyme(cas)
-        n_index = [i for i, l in enumerate(current_cas.forwardPam[::-1]) if l == 'N']
-        outdf = outdf[~(outdf['variant_position_in_guide'].isin(n_index)) & (outdf['cas_type'] == cas)]
+        if current_cas.primeness == "5'":
+            PAM_sequence = current_cas.forwardPam
+        else:
+            PAM_sequence = current_cas.forwardPam[::-1]
+        n_index = [i for i, l in enumerate(PAM_sequence) if l == 'N']
+        filt += [i for i, row in outdf.iterrows() if row['variant_position_in_guide'] in n_index and row['cas_type'] == cas]
+    outdf = outdf.drop(filt)
     return outdf
 
 
@@ -907,6 +911,10 @@ def main(args):
     global CAS_LIST
     CAS_LIST = args['<cas_types>'].split(',')
 
+    CAS_LIST, not_in_both = cas_object.validate_cas_list(CAS_LIST)
+
+    for c in not_in_both:
+        logging.info(f'{c} not in CAS_LIST.txt, skipping.')
     # print args (for debugging)
     logging.info(args)
 
@@ -914,11 +922,12 @@ def main(args):
     if args['--bed']:
         logging.info('Running as multi-locus, assumes BED file given.')
         if not args['<locus>'].endswith('.bed'):
-            logging.info('Error: Must use BED file in place of locus for --bed run. Exiting.')
+            logging.error('Error: Must use BED file in place of locus for --bed run. Exiting.')
             exit(1)
         else:
             out = multilocus_guides(args)
             out = filter_out_N_in_PAM(out, CAS_LIST)
+
     # initiates personalized guide design for single locus
     elif args['--hom']:
         logging.info('Finding non-allele-specific guides.')
@@ -928,10 +937,9 @@ def main(args):
         logging.info('Finding allele-specific guides.')
         out = get_allele_spec_guides(args)
         out = filter_out_N_in_PAM(out, CAS_LIST)
-    
 
     # assign unique identifier to each sgRNA
-    out['guide_id'] = 'guide' + out.index.astype(str)
+    out['guide_id'] = out.apply(lambda row: f"{row['cas_type']}_g" + row.name.astype(str), axis=1)
 
     # convert to RNA
     if args['-r']:
@@ -961,6 +969,9 @@ def main(args):
 
 if __name__ == '__main__':
     arguments = docopt(__doc__, version=__version__)
+    if arguments['--cas-list']:
+        cas_object.print_cas_types()
+        exit()
     if arguments['-v']:
         logging.basicConfig(level=logging.INFO, format='[%(asctime)s %(name)s:%(levelname)s ]%(message)s')
     else:
