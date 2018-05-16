@@ -26,7 +26,15 @@ import subprocess, os, sys
 import regex as re
 from io import StringIO
 
-__version__='0.0.2'
+# Append path to metadata script
+ef_path = os.path.dirname(os.path.realpath(__file__))
+metadata_path = ef_path.replace('generate_gens_dfs','')
+print(metadata_path)
+sys.path.append(metadata_path)
+
+from get_metadata import add_metadata
+
+__version__='0.0.3'
 
 REQUIRED_BCFTOOLS_VER = 1.5
 
@@ -91,14 +99,13 @@ def main(args):
 
 	print(args)
 	vcf_in = args['<vcf_file>']
-
+	out = args['<out>']
 	# Check if bcftools is installed, and then check version number
 	check_bcftools()
 
 	# analyze regions specified in BED file
 	if args['--bed']:
 		bed_file = args['<locus>']
-		out = args['<out>']
 		print(f'Analyzing BED file {bed_file}')
 		bed_df = pd.read_csv(bed_file, sep='\t', header=None, comment='#', names=['chr','start','stop','locus'])
 		vcf_chrom = subprocess.Popen(f'bcftools view -H {vcf_in} | cut -f1 | head -1', shell=True, 
@@ -136,10 +143,7 @@ def main(args):
 		raw_dat = pd.read_csv(StringIO(bcl_query.communicate()[0].decode("utf-8")), sep='\t', 
 			header=None, names=['chrom','pos','ref','alt'])
 
-		# save to HDF
-		raw_dat.to_hdf(f'{out}_gens.h5','all', data_columns=True)
 		os.remove(f'{out}_temp.bed')
-		print('finished')
 
 	elif args['<locus>'].endswith('.bed') or args['<locus>'].endswith('.BED'):
 		print('Must specify --bed if inputting a BED file. Exiting.')
@@ -174,10 +178,6 @@ def main(args):
 		# output  
 		raw_dat = pd.read_csv(StringIO(bcl_query.communicate()[0].decode("utf-8")), sep='\t')
 		raw_dat.columns = ['chrom','pos','ref','alt']
-
-		# save to HDF
-		raw_dat.to_hdf(f'{out}_gens.h5','all', data_columns=True)
-		print('finished')
 	else:
 		print('Running single locus')
 
@@ -213,9 +213,13 @@ def main(args):
 		raw_dat = pd.read_csv(StringIO(bcl_query.communicate()[0].decode("utf-8")), sep='\t', 
 			header=None, names=['chrom','pos','ref','alt'])
 
-		# save to HDF
-		raw_dat.to_hdf(f'{args["<out>"]}_gens.h5','all', data_columns=True)
-		print('finished')
+	# save to HDF
+	out_fname=f'{out}.h5'
+	raw_dat.to_hdf(out_fname,'all', data_columns=True)
+
+	add_metadata(out_fname, args, os.path.splitext(os.path.basename(__file__))[0], __version__, "Gens")
+
+	print('finished')
 
 
 if __name__ == '__main__':
