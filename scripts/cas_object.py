@@ -12,7 +12,7 @@ cas_object.py will do two things:
 """
 import os, sys
 
-CAS_PATH = f'{sys.path[0]}/CAS_LIST.txt'
+CAS_PATH = f'{os.path.dirname(__file__)}/CAS_LIST.txt'
 
 IUPAC={'Y':'[CT]','R':'[AG]','W':'[AT]',
 	'S':'[GC]','K':'[TG]','M':'[CA]','D':'[AGT]',
@@ -116,4 +116,16 @@ def get_cas_list(cas_file=CAS_PATH):
 	for line in open(cas_file):
 		if not line.startswith("#"):
 			cas_list.append(line.split('\t')[0])
-	return cas_list 
+	return cas_list
+
+def validate_cas_list(in_cas_list):
+	"""
+	Takes in a list of cas enzymes, and validates if they are in CAS_LIST.txt. Returns two list, the first
+	being the list of cas enzymes in both in_cas_list and CAS_LIST.txt, and the other being the list of
+	enzymes not in CAS_LIST.txt. The second list is usefull for printing error messages in the main program.
+	"""
+	master = get_cas_list()
+	in_both = list(set(master).intersection(in_cas_list))
+
+	return in_both, list(set(in_cas_list).difference(in_both))
+
