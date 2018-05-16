@@ -946,6 +946,7 @@ def main(args):
     if args['-d']:
         replace_dummy = {'C'*20:'-'*20,'G'*20:'-'*20}
         out['gRNA_ref'] = out['gRNA_ref'].replace(replace_dummy)
+        out['gRNA_alt'] = out['gRNA_alt'].replace(replace_dummy)
     
     # add variant descriptors from 1KGP to assembled guides (optional)
     # if args['<gene_vars>'] != None:
