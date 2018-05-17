@@ -6,8 +6,7 @@ Written in Python v 3.6.1.
 Kathleen Keough et al 2018.
 
 Usage:
-
-    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor] [<ref_gen>] [--hom] [--bed] [--max_indel=<S>]
+    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--hom] [--bed] [--max_indel=<S>] [--ref_guides]
     gen_sgRNAs.py -C | --cas-list
 
 Arguments:
@@ -16,26 +15,23 @@ Arguments:
     locus               Locus of interest in format chrom:start-stop. Put filepath to BED file here if '--bed'.
     pams_dir            Directory where pam locations in the reference genome are located. 
     ref_genome_fasta    Fasta file for reference genome used, e.g. hg38.
-    out             Directory in which to save the output files.
+    out                 Directory in which to save the output files.
     cas_types           Cas types you would like to analyze, comma-separated (e.g. SpCas9,SaCas9).
-    guide_length        Guide length, commonly 20 bp, comma-separated if different for different cas types.
-    gene_vars           Optional. Gene variants HDF5 file originating from 1000 Genomes Data, formatted
-                        in order to add rsID and allele frequency (AF) data to variants. 
+    guide_length        Guide length, commonly 20 bp, comma-separated if different for different cas types. 
 Options:
-    -h --help
-    -c                  Do not take the reverse complement of the guide sequence for '-' stranded guides (when the PAM is on the 5' end).
-    -v                  Run in verbose mode (especially useful for debugging, but also for knowing status of script)
-    --hom               Use 'homozygous' mode, which is basically finding all CRISPR sites (non-allele-specific) in a more personalized
-                        way by taking in individual variants.
-    --crispor=crispor_gen           Add CRISPOR specificity scores to outputted guides. From Haeussler et al. Genome Biology 2016.
-    ref_gen             Directory name of reference genome (complete) which can be downloaded from UCSC (see wiki). This is required
-                        if you specify --crispor
-    --bed               Design sgRNAs for multiple regions specified in a BED file.
-    --max_indel=<S>     Maximum size for INDELS. Must be smaller than guide_length [default: 5].
-    -r                  Return guides in as RNA sequences rather than DNA sequences.
-    -d                  Return dummy guides for variants without a PAM, e.g. when variant makes or breaks a PAM. 
-    -C --cas-list       List avalibe cas types and exits.
-
+    gene_vars              Optional. 1KGP originating file to add rsID and allele frequency (AF) data to variants.
+    -h --help             Show this screen and exit.
+    -c                     Do not take the reverse complement of the guide sequence for '-' stranded guides (when the PAM is on the 5' end).
+    -v                     Run in verbose mode (especially useful for debugging, but also for knowing status of script)
+    --hom                  Use 'homozygous' mode, personalized sgRNA design.
+    --crispor=<ref_gen>    Add CRISPOR specificity scores to outputted guides. From Haeussler et al. Genome Biology 2016. 
+                           Equals directory name of reference genome (complete).
+    --bed                  Design sgRNAs for multiple regions specified in a BED file.
+    --max_indel=<S>        Maximum size for INDELS. Must be smaller than guide_length [default: 5].
+    -r                     Return guides in as RNA sequences rather than DNA sequences.
+    -d                     Return dummy guides for variants without a PAM, e.g. when variant makes or breaks a PAM. 
+    -C --cas-list          List available cas types and exits.
+    --ref_guides           Design guides for reference genome, ignoring variants in region.
 """
 
 import pandas as pd
@@ -527,13 +523,13 @@ def parse_locus(locus):
     return chrom, start, stop
 
 
-def simple_guide_design(args, locus):
+def simple_guide_design(args):
     """
     For the case when the individual has no variants in the locus, simply design guides based on reference sequence.
     """
     
     # parse locus
-    chrom, start, stop = parse_locus(locus)
+    chrom, start, stop = parse_locus(args['<locus>'])
 
     # get location of annotated PAMs in reference genome
     pams_dir = args['<pams_dir>']
@@ -593,13 +589,13 @@ def simple_grnas(row, ref_genome, guide_length, chrom):
     return ref_seq
 
 
-def get_guides(args, locus):
+def get_guides(args):
     """
     Outputs dataframe with individual-specific (not allele-specific) guides.
     """
 
     # parse locus
-    chrom, start, stop = parse_locus(locus)
+    chrom, start, stop = parse_locus(args['<locus>'])
     
     # load variant annotations
     var_annots = pd.read_hdf(args['<annots_file>'], where='pos >= start and pos <= stop')
@@ -614,7 +610,7 @@ def get_guides(args, locus):
     header=None, names=col_names, usecols=['chrom','pos','ref','alt','genotype'])
 
     # remove big indels
-    gens, var_annots = verify_hdf_files(gens, var_annots, chrom, start, stop, max_indel)
+    gens, var_annots = verify_hdf_files(gens, var_annots, chrom, start, stop, int(args['--max_indel']))
 
     # if gens is empty, annots should be too, double check this
     if gens.empty and not var_annots.empty:
@@ -622,8 +618,8 @@ def get_guides(args, locus):
         exit(1)
 
     # if no variants annotated, proceed to simplest design case
-    if gens.empty:
-        out = simple_guide_design(args, locus)
+    if gens.empty or args['--ref_guides']:
+        out = simple_guide_design(args)
         return out
 
     # determine which variants are het and which aren't
@@ -750,14 +746,14 @@ def get_guides(args, locus):
                 alt_seq = ref_genome['chr'+str(chrom)][var - 11:var - 1] + alt + ref_genome['chr'+str(chrom)][
                                                                      var + len(alt) - 1:var + len(alt) - 1 + 10]
 
-            ref_pams_for, ref_pams_rev = find_spec_pams(cas, ref_seq, orient=cas_obj.primeness)
-            alt_pams_for, alt_pams_rev = find_spec_pams(cas, alt_seq, orient=cas_obj.primeness)
+            ref_pams_for, ref_pams_rev = find_spec_pams(cas_obj, ref_seq, orient=cas_obj.primeness)
+            alt_pams_for, alt_pams_rev = find_spec_pams(cas_obj, alt_seq, orient=cas_obj.primeness)
 
             made_pams_for = list(set(alt_pams_for).difference(set(ref_pams_for)))
             made_pams_rev = list(set(alt_pams_rev).difference(set(ref_pams_rev)))
 
             for pam_start in made_pams_for:
-                pam_site = var - 11 + pam
+                pam_site = var - 11 + pam_start
                 ref_allele = ref
                 alt_allele = alt
                 grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome, 
@@ -774,7 +770,7 @@ def get_guides(args, locus):
                 strands.append('+')
                 pam_pos.append(pam_site)
             for pam_start in made_pams_rev:
-                pam_site = var - 11 + pam
+                pam_site = var - 11 + pam_start
                 ref_allele = ref
                 alt_allele = alt
                 grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome, 
