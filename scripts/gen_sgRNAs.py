@@ -964,7 +964,7 @@ def main(args):
         # out = out[COLUMN_ORDER[:-2]] # Exclude rsID and AF rows
 
     # saves output
-    out.to_csv(args['<out>'] + '_guides.tsv', sep='\t', index=False)
+    out.to_csv(args['<out>'] + '.tsv', sep='\t', index=False)
     logging.info('Done.')
 
 
