@@ -6,8 +6,7 @@ Written in Python v 3.6.1.
 Kathleen Keough et al 2018.
 
 Usage:
-
-    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor] [<ref_gen>] [--hom] [--bed] [--max_indel=<S>]
+    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=crispor_gen] [<ref_gen>] [--hom] [--bed] [--max_indel=<S>]
     gen_sgRNAs.py -C | --cas-list
 
 Arguments:
@@ -968,7 +967,7 @@ def main(args):
         # out = out[COLUMN_ORDER[:-2]] # Exclude rsID and AF rows
 
     # saves output
-    out.to_csv(args['<out>'] + '_guides.tsv', sep='\t', index=False)
+    out.to_csv(args['<out>'] + '.tsv', sep='\t', index=False)
     logging.info('Done.')
 
 

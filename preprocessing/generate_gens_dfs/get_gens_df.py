@@ -8,33 +8,34 @@ Written in Python v 3.6.1.
 Kathleen Keough et al 2017-2018.
 
 Usage:
-	get_gens_dfs.py <vcf_file> <locus> <out> [-f] [--bed] [--chrom]
+	get_gens_dfs.py <vcf_file> <locus> <out> [-fv] [--bed] [--chrom]
 
 Arguments:
 	vcf_file           The sample vcf file, separated by chromosome. BCF also supported. 
 	locus			   Locus from which to pull variants, in format chromosome:start-stop, or a BED file if --bed.
 	out				   The name for the output file and directory in which to save the output files.
 Options:
-	-f                 If this option is specified, keeps homozygous variants in output file. 
+	-f                 If this option is specified, keeps homozygous variants in output file.
+	-v 				   Verbose mode.
 	--bed              Indicates that a BED file is being used in place of a locus.
 	--chrom            Run on entire chromosome.
 """
 
 import pandas as pd
 from docopt import docopt
-import subprocess, os, sys
+import subprocess, os, sys, logging
 import regex as re
 from io import StringIO
 
 # Append path to metadata script
 ef_path = os.path.dirname(os.path.realpath(__file__))
 metadata_path = ef_path.replace('generate_gens_dfs','')
-print(metadata_path)
+
 sys.path.append(metadata_path)
 
 from get_metadata import add_metadata
 
-__version__='0.0.3'
+__version__='0.0.4'
 
 REQUIRED_BCFTOOLS_VER = 1.5
 
@@ -54,10 +55,10 @@ def check_bcftools():
 	version = subprocess.run("bcftools -v | head -1 | cut -d ' ' -f2", shell=True,\
 	 stdout=subprocess.PIPE).stdout.decode("utf-8").rstrip()
 	if float(version) >= REQUIRED_BCFTOOLS_VER:
-		print(f'bcftools version {version} running')
+		logging.info(f'bcftools version {version} running')
 
 	else: 
-		print(f"Error: bcftools must be >=1.5. Current version: {version}")
+		logging.error(f"Error: bcftools must be >=1.5. Current version: {version}")
 		exit()
 
 def fix_multiallelics(cell):
@@ -97,7 +98,7 @@ def fix_natural_language(name):
 
 def main(args):
 
-	print(args)
+	logging.info(args)
 	vcf_in = args['<vcf_file>']
 	out = args['<out>']
 	# Check if bcftools is installed, and then check version number
@@ -106,7 +107,7 @@ def main(args):
 	# analyze regions specified in BED file
 	if args['--bed']:
 		bed_file = args['<locus>']
-		print(f'Analyzing BED file {bed_file}')
+		logging.info(f'Analyzing BED file {bed_file}')
 		bed_df = pd.read_csv(bed_file, sep='\t', header=None, comment='#', names=['chr','start','stop','locus'])
 		vcf_chrom = subprocess.Popen(f'bcftools view -H {vcf_in} | cut -f1 | head -1', shell=True, 
 			stdout=subprocess.PIPE).communicate()[0].decode("utf-8").strip()
@@ -116,7 +117,7 @@ def main(args):
 		bed_note = bed_chrom.startswith('chr')
 		
 		if bed_note != chrstart:
-			print(f'Warning: Chromosome notations differ between BED file ({bed_chrom}) and VCF/BCF ({vcf_chrom}).')
+			logging.error(f'Warning: Chromosome notations differ between BED file ({bed_chrom}) and VCF/BCF ({vcf_chrom}).')
 		# removes or adds "chr" based on analyzed VCF
 		bed_df['chr'] = [ norm_chr(chrom, chrstart) for chrom in bed_df['chr'].tolist() ]
 
@@ -146,10 +147,10 @@ def main(args):
 		os.remove(f'{out}_temp.bed')
 
 	elif args['<locus>'].endswith('.bed') or args['<locus>'].endswith('.BED'):
-		print('Must specify --bed if inputting a BED file. Exiting.')
+		logging.error('Must specify --bed if inputting a BED file. Exiting.')
 		exit()
 	elif args['--chrom']:
-		print('Running get_chr_tables.py on entire chromosome. This might take awhile.')
+		logging.info('Running get_chr_tables.py on entire chromosome. This might take awhile.')
 		# get locus info
 		# check whether chromosome in VCF file includes "chr" in chromosome
 		vcf_chrom = str(subprocess.Popen(f'bcftools view -H {vcf_in} | cut -f1 | head -1', shell=True, 
@@ -179,7 +180,7 @@ def main(args):
 		raw_dat = pd.read_csv(StringIO(bcl_query.communicate()[0].decode("utf-8")), sep='\t')
 		raw_dat.columns = ['chrom','pos','ref','alt']
 	else:
-		print('Running single locus')
+		logging.info('Running single locus')
 
 		# get locus info
 		locus = args['<locus>']
@@ -189,8 +190,13 @@ def main(args):
 		vcf_chrom = subprocess.Popen(f'bcftools view -H {vcf_in} | cut -f1 | head -1', shell=True, 
 			stdout=subprocess.PIPE).communicate()[0].decode("utf-8").strip()
 		# See if chrom contains chr
-		vcf_chrom = vcf_chrom.startswith('chr')
-		chrom = norm_chr(chrom, vcf_chrom)
+		vcf_note = vcf_chrom.startswith('chr')
+
+		locus_note = chrom.startswith('chr')
+
+		if locus_note != vcf_note:
+			logging.error(f'Warning: Chromosome notations differ between BED file ({chrom}) and VCF/BCF ({vcf_chrom}). Normalizing.')
+		chrom = norm_chr(chrom, vcf_note)
 
 		# properly formatted locus string
 		locus=f'{chrom}:'+locus.split(':')[1]
@@ -219,9 +225,13 @@ def main(args):
 
 	add_metadata(out_fname, args, os.path.splitext(os.path.basename(__file__))[0], __version__, "Gens")
 
-	print('finished')
+	logging.info('Finished.')
 
 
 if __name__ == '__main__':
 	arguments = docopt(__doc__, version=__version__)
+	if arguments['-v']:
+		logging.basicConfig(level=logging.INFO, format='[%(asctime)s %(name)s:%(levelname)s ]%(message)s')
+	else:
+		logging.basicConfig(level=logging.ERROR, format='[%(asctime)s %(name)s:%(levelname)s ]%(message)s')
 	main(arguments)
