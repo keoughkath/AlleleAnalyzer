@@ -25,7 +25,7 @@ def add_metadata(out_hdf_fname, arg_dict, script_name, version, filetype):
     Adds metadata to the output hdf file, containing all the options used in the script, when it was run, and what version was used.
     """
     store = pd.HDFStore(out_hdf_fname)
-    meta = dict(time=str(datetime.now()), script=script_name, version=version, filetype=filetype)
+    meta = dict(time=str(datetime.now()).split('.')[0], script=script_name, version=version, filetype=filetype)
     store.get_storer('all').attrs.metadata = meta
     store.get_storer('all').attrs.arguments = arg_dict
     store.close()

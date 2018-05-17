@@ -275,7 +275,7 @@ def main(args):
     combined_df = pd.concat(combined_df)
     combined_df.to_hdf(f'{out}.hdf5', 'all', mode='w', format='table', data_columns=True, complib='blosc')
 
-    add_metadata(f'{out}.hdf5', args, os.path.splitext(os.path.basename(__file__))[0], __version__, "Annotation")
+    add_metadata(f'{out}.hdf5', args, os.path.basename(__file__), __version__, "Annotation")
     logging.info('Done.')
 
 if __name__ == '__main__':
