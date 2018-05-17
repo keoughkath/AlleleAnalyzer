@@ -292,7 +292,7 @@ def get_allele_spec_guides(args):
 
     # figure out annotation of VCF/BCF chromosome (i.e. starts with 'chr' or not)
     vcf_chrom = str(subprocess.Popen(f'bcftools view -H {args["<bcf>"]} | cut -f1 | head -1', shell=True, 
-        stdout=subprocess.PIPE).communicate()[0])
+        stdout=subprocess.PIPE).communicate()[0].decode("utf-8"))
 
     # See if chrom contains chr
     if vcf_chrom.startswith('chr'):
@@ -301,7 +301,6 @@ def get_allele_spec_guides(args):
         chrstart = False
 
     chrom = norm_chr(chrom, chrstart)
-
     # eliminates rows with missing genotypes and gets those where heterozygous
     bcl_v = f'bcftools view -g ^miss -g het -r {chrom}:{start}-{stop} -H {bcf}'
     col_names = ['chrom','pos','rsid','ref','alt','score','random','info','gt','genotype']
@@ -315,6 +314,7 @@ def get_allele_spec_guides(args):
     var_annots = pd.read_hdf(args['<annots_file>'])
 
     # remove big indels
+    print(gens)
     gens, var_annots = verify_hdf_files(gens, var_annots, chrom, start, stop, int(args['--max_indel']))
 
     # if gens is empty, annots should be too, double check this
