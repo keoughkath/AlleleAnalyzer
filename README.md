@@ -19,9 +19,9 @@ ExcisionFinder is a database and toolset for analysis and design of allele-speci
 
 The annotated variant database and gene targetability results from the 1000 Genomes Project are available [here](http://lighthouse.ucsf.edu/public_files_no_password/excisionFinderData_public/ExcisionFinder_manuscript_data/).
 
-[Pre-computed PAM locations.](http://lighthouse.ucsf.edu/public_files_no_password/excisionFinderData_public/)
-
 ## Useful links
+
+[Pre-computed PAM locations.](http://lighthouse.ucsf.edu/public_files_no_password/excisionFinderData_public/)
 
 [UCSC chromosome fastas, hg19.](http://hgdownload.soe.ucsc.edu/goldenPath/hg19/chromosomes/)
 
