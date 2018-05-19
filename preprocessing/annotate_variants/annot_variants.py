@@ -29,16 +29,20 @@ from collections import Counter
 from pyfaidx import Fasta
 import regex
 
-__version__ = '0.0.3'
+__version__ = '0.0.4'
 
 # 3 and 5 prime cas lists
 
 # Get apsolute path for gen_targ_dfs.py, and edit it for cas_object.py
-cas_obj_path = os.path.dirname(os.path.realpath(__file__))
-cas_obj_path = cas_obj_path.replace('preprocessing/annotate_variants','scripts/')
+ef_path = os.path.dirname(os.path.realpath(__file__))
+cas_obj_path = ef_path.replace('preprocessing/annotate_variants','scripts/')
 sys.path.append(cas_obj_path)
+
+metadata_path = ef_path.replace('annotate_variants','')
+sys.path.append(metadata_path)
 # Import cas_object
 import cas_object as cas_obj
+from get_metadata import add_metadata
 
 def norm_chr(chrom_str, gens_chrom):
     """
@@ -182,7 +186,6 @@ def split_gens(gens_df, chroms):
     """
     return [ gens_df.loc[gens_df['chrom'] == c] for c in chroms]
 
-
 def main(args):
     logging.info(args)
     out = args['<out>']
@@ -271,6 +274,8 @@ def main(args):
 
     combined_df = pd.concat(combined_df)
     combined_df.to_hdf(f'{out}.hdf5', 'all', mode='w', format='table', data_columns=True, complib='blosc')
+
+    add_metadata(f'{out}.hdf5', args, os.path.basename(__file__), __version__, "Annotation")
     logging.info('Done.')
 
 if __name__ == '__main__':
