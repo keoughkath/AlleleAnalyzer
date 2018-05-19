@@ -21,6 +21,8 @@ The annotated variant database and gene targetability results from the 1000 Geno
 
 [Pre-computed PAM locations.](http://lighthouse.ucsf.edu/public_files_no_password/excisionFinderData_public/)
 
+## Useful links
+
 [UCSC chromosome fastas, hg19.](http://hgdownload.soe.ucsc.edu/goldenPath/hg19/chromosomes/)
 
 [UCSC chromosome fastas, hg38.](http://hgdownload.soe.ucsc.edu/goldenPath/hg38/chromosomes/)
