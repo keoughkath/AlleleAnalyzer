@@ -569,7 +569,8 @@ def simple_guide_design(args):
         guides_out['stop'] = pos_stops + neg_stops
         guides_out['ref'] = np.nan
         guides_out['alt'] = np.nan
-        guides_out['grna'] = guides_out.apply(lambda row: simple_grnas(row, ref_genome, guide_length, chrom), axis=1)
+        guides_out['gRNA_ref'] = guides_out.apply(lambda row: simple_grnas(row, ref_genome, guide_length, chrom), axis=1)
+        guides_out['gRNA_alt'] = 'C' * 20
         guides_out['cas_type'] = cas
         guides_out['chrom'] = chrom
         guides_out['variant_position'] = np.nan
