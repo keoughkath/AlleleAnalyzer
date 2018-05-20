@@ -13,7 +13,7 @@ Arguments:
 
 Options:
 	-h   			    Shows this page and exit.
-	--pop=<population>  Analyze a specific population, e.g. AMR [default: all].
+	--pop=<population>  Analyze a specific population, e.g. AMR.
 """
 
 import pandas as pd
@@ -23,7 +23,7 @@ __version__ = '0.0.0'
 
 def filt_pops(df, sample_legend, pop='all'):
     df = df.merge(sample_legend, how='left')
-    if pop=='all':
+    if pop==None:
         return df, sample_legend.shape[0]
     else:
         return df.query('pop == @pop or superpop == @pop'), sample_legend.query('superpop == @pop or pop == @pop').shape[0]
@@ -37,7 +37,7 @@ def main(args):
 	all_pops, n_pop = filt_pops(df, sample_legend, args['--pop'])
 
 	inds_per_pair = all_pops.groupby(['var1','var2']).ind.count().reset_index()
-	inds_per_pair['perc_shared'] = inds_per_pair['ind'] / n_pop
+	inds_per_pair['perc_shared'] = inds_per_pair['ind'] / n_pop * 100.0
 	inds_per_pair.columns = ['var1','var2','n_inds','percent_pop_covered']
 
 	inds_per_pair.to_csv(args['<out>'] + '.tsv', sep='\t', index=False)
