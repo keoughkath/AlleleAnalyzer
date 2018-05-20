@@ -9,7 +9,7 @@ library(viridis)
 
 args = commandArgs(trailingOnly=TRUE)
 
-# Rscript arcplot_generic.R infile.tsv out_prefix filter_level
+# Rscript arcplot_generic.R infile.tsv out_prefix filter_level gene_start gene_end
 
 out_prefix = toString(args[2])
 filt = as.numeric(args[3])

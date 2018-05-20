@@ -20,7 +20,7 @@ Arguments:
     guide_length        Guide length, commonly 20 bp, comma-separated if different for different cas types. 
 Options:
     gene_vars              Optional. 1KGP originating file to add rsID and allele frequency (AF) data to variants.
-    -h --help             Show this screen and exit.
+    -h --help              Show this screen and exit.
     -c                     Do not take the reverse complement of the guide sequence for '-' stranded guides (when the PAM is on the 5' end).
     -v                     Run in verbose mode (especially useful for debugging, but also for knowing status of script)
     --hom                  Use 'homozygous' mode, personalized sgRNA design.
