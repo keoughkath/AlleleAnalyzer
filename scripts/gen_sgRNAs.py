@@ -314,7 +314,6 @@ def get_allele_spec_guides(args):
     var_annots = pd.read_hdf(args['<annots_file>'])
 
     # remove big indels
-    print(gens)
     gens, var_annots = verify_hdf_files(gens, var_annots, chrom, start, stop, int(args['--max_indel']))
 
     # if gens is empty, annots should be too, double check this
@@ -841,12 +840,13 @@ def get_guides(args):
 
     # get output DF
     out = pd.DataFrame({'chrom':chroms,'start':starts, 'stop':stops, 'ref':refs, 'alt':alts,
-        'variant_position_in_guide':variant_pos_in_guides, 'gRNAs':grnas, 'variant_position':variants_positions,
+        'variant_position_in_guide':variant_pos_in_guides, 'gRNA_ref':grnas, 'variant_position':variants_positions,
         'strand': strands, 'cas_type':cas_types})
+    out['gRNA_alt'] = ['C'*20] * out.shape[0]
 
     # add specificity scores if specified
     if args['--crispor']:
-        out = get_crispor_scores(out, args['<out>'], args['<ref_gen>'])
+        out = get_crispor_scores(out, args['<out>'], args['--crispor'])
 
     # get rsID and AF info if provided
     if args['<gene_vars>']:
