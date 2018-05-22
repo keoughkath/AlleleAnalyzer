@@ -7,6 +7,8 @@ library(ggraph)
 library(igraph)
 library(viridis)
 
+print(sessionInfo())
+
 args = commandArgs(trailingOnly=TRUE)
 
 # Rscript arcplot_generic.R infile.tsv out_prefix filter_level gene_start gene_end
