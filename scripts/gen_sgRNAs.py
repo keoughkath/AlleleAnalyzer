@@ -269,6 +269,23 @@ def filter_out_N_in_PAM(outdf, cas_ins):
     return outdf
 
 
+def filter_out_non_N_in_PAM(outdf, cas_ins):
+    """
+    Using the given cas list, find N indexes and remove rows with N's.
+    """
+    filt = []
+    for cas in cas_ins:
+        current_cas = cas_object.get_cas_enzyme(cas)
+        if current_cas.primeness == "5'":
+            PAM_sequence = current_cas.forwardPam
+        else:
+            PAM_sequence = current_cas.forwardPam[::-1]
+        n_index = [i for i, l in enumerate(PAM_sequence) if l != 'N']
+        filt += [i for i, row in outdf.iterrows() if row['variant_position_in_guide'] in n_index and row['cas_type'] == cas]
+    outdf = outdf.drop(filt)
+    return outdf
+
+
 
 def get_allele_spec_guides(args):
     """ 
@@ -687,8 +704,8 @@ def get_guides(args):
 
         # check each possible existing gRNA for instances that break it or change the sgRNA sequence
         for pos in pam_for_pos:
-            # disqualify sgRNAs with het variants in sgRNA seed region
-            if any(het_variant in range(pos-guide_length-1,pos) for het_variant in het_vars_near_pams):
+            # disqualify sgRNAs with het variants in sgRNA seed region or PAM site
+            if any(het_variant in range(pos-guide_length-1,pos + pam_length + 1) for het_variant in het_vars_near_pams):
                 continue
             # disqualify sgRNAs where variant destroys PAM site (het or hom doesn't matter)
             elif any(variant in range(pos, pos+pam_length+1) for variant in vars_destroy_pam):
@@ -707,7 +724,7 @@ def get_guides(args):
                     stops.append(pos - 1)
                     refs.append(ref_allele)
                     alts.append(alt_allele)
-                    grnas.append(grna_alt_seq)
+                    grnas.append(grna_alt_seq.upper())
                     variant_pos_in_guides.append(pam_site - var - 1 + pam_length)
                     strands.append('+')
                     pam_pos.append(pos)
@@ -723,7 +740,7 @@ def get_guides(args):
                 stops.append(pos - 1)
                 refs.append(np.nan)
                 alts.append(np.nan)
-                grnas.append(ref_genome['chr'+str(chrom)][pos - guide_length - 1:pos - 1])
+                grnas.append(ref_genome['chr'+str(chrom)][pos - guide_length - 1:pos - 1].upper())
                 variant_pos_in_guides.append(np.nan)
                 strands.append('+')
                 pam_pos.append(pos)
@@ -763,7 +780,7 @@ def get_guides(args):
                 stops.append(pam_site)
                 refs.append(ref_allele)
                 alts.append(alt_allele)
-                grnas.append(grna_ref_seq)
+                grnas.append(grna_ref_seq.upper())
                 variant_pos_in_guides.append(pam_site + pam_length - var)
                 cas_types.append(cas)
                 chroms.append(chrom)
@@ -784,7 +801,7 @@ def get_guides(args):
                 stops.append(stop)
                 refs.append(ref_allele)
                 alts.append(alt_allele)
-                grnas.append(grna_ref_seq)
+                grnas.append(grna_ref_seq.upper())
                 var_pos = var - pam_site + pam_length
                 variant_pos_in_guides.append(var_pos)
                 cas_types.append(cas)
@@ -794,11 +811,11 @@ def get_guides(args):
                 pam_pos.append(pam_site)
         # evaluate PAMs on negative strand (reverse direction)
         for pos in pam_rev_pos:
-            # disqualify sgRNAs with het variants in sgRNA seed region
-            if any(het_variant in range(pos+1,pos+22) for het_variant in het_vars_near_pams):
+            # disqualify sgRNAs with het variants in sgRNA seed region or PAM
+            if any(het_variant in range(pos - pam_length,pos+22) for het_variant in het_vars_near_pams):
                 continue
             # disqualify sgRNAs where variant destroys PAM site (het or hom doesn't matter)
-            elif any(variant in range(pos - pam_length, pos+1) for variant in vars_destroy_pam):
+            elif any(variant in range(pos - pam_length, pos+22) for variant in vars_destroy_pam):
                 continue
             # amend any sgRNAs with homozygous variants in the sgRNA seed region
             elif any(variant in range(pos+1,pos+22) for variant in hom_vars_near_pams):
@@ -815,7 +832,7 @@ def get_guides(args):
                     stops.append(pam_site + guide_length)
                     refs.append(ref_allele)
                     alts.append(alt_allele)
-                    grnas.append(grna_alt_seq)
+                    grnas.append(grna_alt_seq.upper())
                     variant_pos_in_guides.append(var - pam_site + pam_length - 1)
                     strands.append('-')
                     pam_pos.append(pos)
@@ -841,12 +858,13 @@ def get_guides(args):
 
     # get output DF
     out = pd.DataFrame({'chrom':chroms,'start':starts, 'stop':stops, 'ref':refs, 'alt':alts,
-        'variant_position_in_guide':variant_pos_in_guides, 'gRNAs':grnas, 'variant_position':variants_positions,
+        'variant_position_in_guide':variant_pos_in_guides, 'gRNA_ref':grnas, 'variant_position':variants_positions,
         'strand': strands, 'cas_type':cas_types})
+    out['gRNA_alt'] = ['C'*20] * out.shape[0]
 
     # add specificity scores if specified
     if args['--crispor']:
-        out = get_crispor_scores(out, args['<out>'], args['<ref_gen>'])
+        out = get_crispor_scores(out, args['<out>'], args['--crispor'])
 
     # get rsID and AF info if provided
     if args['<gene_vars>']:
@@ -855,6 +873,9 @@ def get_guides(args):
             gene_vars['chrom'] = list(map(lambda x: 'chr' + str(x), gene_vars['chrom']))
         gene_vars['variant_position'] = gene_vars['pos']
         out = out.merge(gene_vars, how='left', on=['chrom','variant_position','ref','alt'])
+
+    out['gRNAs'] = out['gRNA_ref']
+    out = out.drop(columns=['gRNA_ref','gRNA_alt'])
     return out
 
 
@@ -935,6 +956,7 @@ def main(args):
     elif args['--hom']:
         logging.info('Finding non-allele-specific guides.')
         out = get_guides(args)
+        out = filter_out_non_N_in_PAM(out, CAS_LIST)
     # initiates allele-specific, personalized guide design for single locus
     else:
         logging.info('Finding allele-specific guides.')
@@ -942,7 +964,8 @@ def main(args):
         out = filter_out_N_in_PAM(out, CAS_LIST)
 
     # assign unique identifier to each sgRNA
-    out['guide_id'] = out.apply(lambda row: f"{row['cas_type']}_g" + row.name.astype(str), axis=1)
+    out['id'] = out.index.astype(str)
+    out['guide_id'] = out['cas_type'] + '_' + out['id']
 
     # convert to RNA
     if args['-r']:
