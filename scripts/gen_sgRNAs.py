@@ -28,7 +28,7 @@ Options:
                            Equals directory name of reference genome (complete).
     --bed                  Design sgRNAs for multiple regions specified in a BED file.
     --max_indel=<S>        Maximum size for INDELS. Must be smaller than guide_length [default: 5].
-    -r                     Return guides in as RNA sequences rather than DNA sequences.
+    -r                     Return guides as RNA sequences rather than DNA sequences.
     -d                     Return dummy guides for variants without a PAM, e.g. when variant makes or breaks a PAM. 
     -C --cas-list          List available cas types and exits.
     --ref_guides           Design guides for reference genome, ignoring variants in region.
@@ -975,16 +975,6 @@ def main(args):
         replace_dummy = {'C'*20:'-'*20,'G'*20:'-'*20}
         out['gRNA_ref'] = out['gRNA_ref'].replace(replace_dummy)
         out['gRNA_alt'] = out['gRNA_alt'].replace(replace_dummy)
-    
-    # add variant descriptors from 1KGP to assembled guides (optional)
-    # if args['<gene_vars>'] != None:
-    #     for i, row in out.iterrows():
-    #         if pd.isnull(row['rsID']):
-    #             out.ix[i,'rsID'] = ':'.join([row['chrom'],str(row['variant_position']),row['ref'], row['alt']])
-    #             out.ix[i,'AF'] = 0 
-        # out = out[COLUMN_ORDER]
-    # else:
-        # out = out[COLUMN_ORDER[:-2]] # Exclude rsID and AF rows
 
     # saves output
     out.to_csv(args['<out>'] + '.tsv', sep='\t', index=False)
