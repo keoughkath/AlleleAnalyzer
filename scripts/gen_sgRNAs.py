@@ -331,7 +331,6 @@ def get_allele_spec_guides(args):
     var_annots = pd.read_hdf(args['<annots_file>'])
 
     # remove big indels
-    print(gens)
     gens, var_annots = verify_hdf_files(gens, var_annots, chrom, start, stop, int(args['--max_indel']))
 
     # if gens is empty, annots should be too, double check this
