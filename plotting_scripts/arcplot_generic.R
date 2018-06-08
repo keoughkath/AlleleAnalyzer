@@ -11,7 +11,7 @@ print(sessionInfo())
 
 args = commandArgs(trailingOnly=TRUE)
 
-# Rscript arcplot_generic.R infile.tsv out_prefix filter_level gene_start gene_end
+# Rscript arcplot_generic.R infile.tsv out_prefix filter_level gene_start gene_end window plot_title
 
 out_prefix = toString(args[2])
 filt = as.numeric(args[3])
