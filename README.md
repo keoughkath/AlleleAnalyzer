@@ -2,7 +2,7 @@
 
 ExcisionFinder is a tool for designing personalized and allele-specific sgRNAs for general genome editing and optimizing pairs of sgRNAs for human therapeutic editing.
 
-**Note**: ExcisionFinder is currently in early beta and has many bugs, which we are actively working to fix. If you use this tool and find any issues or anything that is difficult to interpret, please send a message to this github or to kathleen.keough@gladstone.ucsf.edu
+**Note**: ExcisionFinder is currently in beta and so you may encounter a bug (we are working hard to find and fix all of these). If you use this tool and find any issues or anything that is difficult to interpret, please send a message to this Github or to kathleen.keough at gladstone.ucsf.edu
 
 ## Table of Contents
 
