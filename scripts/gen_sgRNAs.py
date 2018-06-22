@@ -6,7 +6,7 @@ Written in Python v 3.6.1.
 Kathleen Keough et al 2018.
 
 Usage:
-    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--hom] [--bed] [--max_indel=<S>] [--ref_guides]
+    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--hom] [--bed] [--max_indel=<S>] [--ref_guides] [--include_PAMs]
     gen_sgRNAs.py -C | --cas-list
 
 Arguments:
@@ -32,6 +32,7 @@ Options:
     -d                     Return dummy guides for variants without a PAM, e.g. when variant makes or breaks a PAM. 
     -C --cas-list          List available cas types and exits.
     --ref_guides           Design guides for reference genome, ignoring variants in region.
+    --include_PAMs         When replorting the sgRNA sequence, include the PAM sequence. Default False.
 """
 
 import pandas as pd
@@ -48,7 +49,7 @@ import subprocess
 from io import StringIO
 import logging
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 REQUIRED_BCFTOOLS_VER = '1.5'
 # COLUMN_ORDER=['chrom','variant_position','ref','alt','gRNA_ref','gRNA_alt',
@@ -170,58 +171,62 @@ def get_crispor_scores(out_df, outdir, ref_gen):
     # Edif ref_gen pack to make it absolute for CRIPSOR compatability.
     ref_gen = os.path.abspath(ref_gen)
 
-    ## Seperate cas_list by cas name, and run CRISPOR indipendantly on each type of cas. Next commit.
-    #cas_list = list(dict(Counter(out_df.cas_type)).keys())
-    #split_df = [ out_df.loc[out_df['cas_type'] == c] for c in cas_list]
-
-    guide_seqs_ref = ['>ref_guide_seqs\n']
-    guide_seqs_alt = ['>alt_guide_seqs\n']
-    for index, row in out_df.iterrows():
-        guide_seqs_ref.append(row['gRNA_ref'] + 'NN\n') # the NN splits things up for CRISPOR
-        guide_seqs_alt.append(row['gRNA_alt'] + 'NN\n')
-    with open('ref_seqs_nosave.fa', 'w') as f:
-        for seq in guide_seqs_ref:
-            f.write(seq)
-    with open('alt_seqs_nosave.fa', 'w') as f:
-        for seq in guide_seqs_alt:
-            f.write(seq)
-    # get script dir
-    scriptsdir = os.path.join(os.path.dirname(__file__), 'crispor')
-    run_name = os.path.join(scriptsdir, f'crispor.py --skipAlign --noEffScores -g {ref_gen} hg19')
-    logging.info(f'Running crispor.')
-    #error_out = os.path.join(outdir, 'crispor_error.txt')
-    error_out = os.path.join(os.path.dirname(outdir), 'crispor_error.txt')
-    command = f'source activate crispor; \
-    python2 {run_name} ref_seqs_nosave.fa nosave_ref_scores.tsv &> {error_out};\
-    python2 {run_name} alt_seqs_nosave.fa nosave_alt_scores.tsv &> {error_out};\
-    source deactivate crispor'
-    subprocess.run(command, shell=True)
-    logging.info(f'crispor done.')
-    # subprocess.run('source deactivate crispor', shell=True)
-    # remove seq files
-    os.remove('ref_seqs_nosave.fa')
-    os.remove('alt_seqs_nosave.fa')
-    # grab scores from files outputted from CRISPOR
-    score_dir_ref = pd.read_csv('nosave_ref_scores.tsv', sep='\t', header=None, names=['seqId','guideId','targetSeq',
-        'mitSpecScore','offtargetCount','targetGenomeGeneLocus'])
-    score_dir_alt = pd.read_csv('nosave_alt_scores.tsv', sep='\t', header=None, names=['seqId','guideId','targetSeq',
-        'mitSpecScore','offtargetCount','targetGenomeGeneLocus'])
-    # remove original score files
-    os.remove('nosave_ref_scores.tsv')
-    os.remove('nosave_alt_scores.tsv')
-    # merge score info with original out_df
-    merge_df_ref = pd.DataFrame()
-    merge_df_ref['scores_ref'] = score_dir_ref['mitSpecScore']
-    merge_df_ref['offtargcount_ref'] = score_dir_ref['offtargetCount']
-    merge_df_ref['gRNA_ref'] = score_dir_ref['targetSeq'] # get rid of added on PAM site
-    merge_df_alt = pd.DataFrame()
-    merge_df_alt['scores_alt'] = score_dir_alt['mitSpecScore']
-    merge_df_alt['offtargcount_alt'] = score_dir_alt['offtargetCount']
-    merge_df_alt['gRNA_alt'] = score_dir_alt['targetSeq'] # get rid of added on PAM site
-    # output outdir with its new score columns
-    outdf = out_df.merge(merge_df_ref, how='left', on='gRNA_ref')
-    outdf = outdf.merge(merge_df_alt, how='left', on='gRNA_alt')
-    return(outdf)
+    ## Seperate cas_list by cas name, and run CRISPOR indipendantly on each type of cas.
+    cas_list = list(dict(Counter(out_df.cas_type)).keys())
+    split_df = [ out_df.loc[out_df['cas_type'] == c] for c in cas_list ]
+    out_list = []
+    for i, df in enumerate(split_df):
+        current_cas = cas_object.get_cas_enzyme(cas_list[i])
+        guide_seqs_ref = ['>ref_guide_seqs\n']
+        guide_seqs_alt = ['>alt_guide_seqs\n']
+        for index, row in df.iterrows():
+            guide_seqs_ref.append(row['gRNA_ref'] + 'NN\n') # the NN splits things up for CRISPOR
+            guide_seqs_alt.append(row['gRNA_alt'] + 'NN\n')
+        with open('ref_seqs_nosave.fa', 'w') as f:
+            for seq in guide_seqs_ref:
+                f.write(seq)
+        with open('alt_seqs_nosave.fa', 'w') as f:
+            for seq in guide_seqs_alt:
+                f.write(seq)
+        # get script dir
+        scriptsdir = os.path.join(os.path.dirname(__file__), 'crispor')
+        run_name = os.path.join(scriptsdir, f'crispor.py --skipAlign --noEffScores -p {current_cas.forwardPam} -g {ref_gen} hg19')
+        print(run_name)
+        logging.info(f'Running crispor.')
+        #error_out = os.path.join(outdir, 'crispor_error.txt')
+        error_out = os.path.join(os.path.dirname(outdir), 'crispor_error.txt')
+        command = f'source activate crispor; \
+        python2 {run_name} ref_seqs_nosave.fa nosave_ref_scores.tsv &> {error_out};\
+        python2 {run_name} alt_seqs_nosave.fa nosave_alt_scores.tsv &> {error_out};\
+        source deactivate crispor'
+        subprocess.run(command, shell=True)
+        logging.info(f'crispor done.')
+        # subprocess.run('source deactivate crispor', shell=True)
+        # remove seq files
+        os.remove('ref_seqs_nosave.fa')
+        os.remove('alt_seqs_nosave.fa')
+        # grab scores from files outputted from CRISPOR
+        score_dir_ref = pd.read_csv('nosave_ref_scores.tsv', sep='\t', header=None, names=['seqId','guideId','targetSeq',
+            'mitSpecScore','offtargetCount','targetGenomeGeneLocus'])
+        score_dir_alt = pd.read_csv('nosave_alt_scores.tsv', sep='\t', header=None, names=['seqId','guideId','targetSeq',
+            'mitSpecScore','offtargetCount','targetGenomeGeneLocus'])
+        # remove original score files
+        os.remove('nosave_ref_scores.tsv')
+        os.remove('nosave_alt_scores.tsv')
+        # merge score info with original out_df
+        merge_df_ref = pd.DataFrame()
+        merge_df_ref['scores_ref'] = score_dir_ref['mitSpecScore']
+        merge_df_ref['offtargcount_ref'] = score_dir_ref['offtargetCount']
+        merge_df_ref['gRNA_ref'] = score_dir_ref['targetSeq'] # get rid of added on PAM site
+        merge_df_alt = pd.DataFrame()
+        merge_df_alt['scores_alt'] = score_dir_alt['mitSpecScore']
+        merge_df_alt['offtargcount_alt'] = score_dir_alt['offtargetCount']
+        merge_df_alt['gRNA_alt'] = score_dir_alt['targetSeq'] # get rid of added on PAM site
+        # output outdir with its new score columns
+        outdf = df.merge(merge_df_ref, how='left', on='gRNA_ref')
+        outdf = df.merge(merge_df_alt, how='left', on='gRNA_alt')
+        out_list.append(outdf)
+    return(pd.concat(out_list))
 
 
 def verify_hdf_files(gen_file, annots_file, chrom, start, stop, max_indel):
