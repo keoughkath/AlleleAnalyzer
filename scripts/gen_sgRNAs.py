@@ -52,8 +52,9 @@ import logging
 __version__ = '0.0.2'
 
 REQUIRED_BCFTOOLS_VER = '1.5'
-# COLUMN_ORDER=['chrom','variant_position','ref','alt','gRNA_ref','gRNA_alt',
-# 'variant_position_in_guide','start','stop','strand','cas_type','guide_id','rsID','AF']
+COLUMN_ORDER=['chrom','variant_position','ref','alt','gRNA_ref','gRNA_alt',
+'variant_position_in_guide','start','stop','strand','cas_type','guide_id']
+ANNOT_1=['rsID','AF']
 # get rid of annoying false positive Pandas error
 
 pd.options.mode.chained_assignment = None
@@ -122,17 +123,17 @@ def get_alt_seq(chrom, pam_start, var_pos, ref, alt, guide_length, pam_length, r
             alt_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length - 1:var_pos - 1].lower() + alt.upper() + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start + pam_length - 1].lower()
         elif var_type == 'destroys_pam':
             # reference sgRNA
-            ref_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length - 1:pam_start + pam_length - 1]
+            ref_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length :pam_start + pam_length]
             # in this case, variant is destroying a PAM, rendering the alternate allele no longer a CRISPR site
             # therefore, for lack of a better solution, return empty alt_seq
-            alt_seq = 'G' * (guide_length  + pam_length)
+            alt_seq = ('G' * guide_length) + ref_genome['chr'+str(chrom)][pam_start:pam_start + pam_length]
         elif var_type == 'makes_pam': # this might break with indels
             # reference sgRNA
-            ref_seq = 'G' * (guide_length  + pam_length)
+            ref_seq = ('G' * guide_length) + ref_genome['chr'+str(chrom)][pam_start-1:var_pos - 1] + alt.upper() + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start - 1]
             # in this case, variant is destroying a PAM, rendering the alternate allele no longer a CRISPR site
             # therefore, for lack of a better solution, return empty alt_seq
-            alt_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length - 1:pam_start + pam_length - 1]
-        return ref_seq.upper(), alt_seq.upper()
+            alt_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length - 1:var_pos - 1].lower() + alt.upper() + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start + pam_length - 1].lower()
+        return ref_seq, alt_seq
 
     elif strand == 'negative':
         if var_type == 'near_pam':
@@ -145,12 +146,12 @@ def get_alt_seq(chrom, pam_start, var_pos, ref, alt, guide_length, pam_length, r
             ref_seq = ref_genome['chr'+str(chrom)][pam_start - pam_length:pam_start + guide_length]
             # in this case, variant is destroying a PAM, rendering the alternate allele no longer a CRISPR site
             # therefore, for lack of a better solution, return empty alt_seq
-            alt_seq = 'G' * (guide_length  + pam_length)
+            alt_seq = ref_genome['chr'+str(chrom)][pam_start - pam_length:pam_start] + ('C' * guide_length)
         elif var_type == 'makes_pam': # this might break with indels
             # reference sgRNA
-            ref_seq = 'G' * (guide_length  + pam_length)
-            alt_seq = ref_genome['chr'+str(chrom)][pam_start - pam_length:pam_start + guide_length ]
-        return ref_seq.upper(), alt_seq.upper()
+            ref_seq = ref_genome['chr'+str(chrom)][pam_start - pam_length:var_pos - 1] + alt + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start] + ('C' * guide_length)
+            alt_seq = ref_genome['chr'+str(chrom)][pam_start - pam_length:var_pos - 1] + alt + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start + guide_length]
+        return ref_seq, alt_seq
     else:
         logging.info ('Must specify strand.')
         exit(1)
@@ -211,21 +212,21 @@ def get_crispor_scores(out_df, outdir, ref_gen):
         score_dir_alt = pd.read_csv('nosave_alt_scores.tsv', sep='\t', header=None, names=['seqId','guideId','targetSeq',
             'mitSpecScore','offtargetCount','targetGenomeGeneLocus'])
         # remove original score files
-        os.remove('nosave_ref_scores.tsv')
-        os.remove('nosave_alt_scores.tsv')
+        #os.remove('nosave_ref_scores.tsv')
+        #os.remove('nosave_alt_scores.tsv')
         # merge score info with original out_df
         merge_df_ref = pd.DataFrame()
         merge_df_ref['scores_ref'] = score_dir_ref['mitSpecScore']
         merge_df_ref['offtargcount_ref'] = score_dir_ref['offtargetCount']
-        merge_df_ref['gRNA_ref'] = score_dir_ref['targetSeq'] # get rid of added on PAM site
+        merge_df_ref['gRNA_ref'] = score_dir_ref['targetSeq'] 
         merge_df_alt = pd.DataFrame()
         merge_df_alt['scores_alt'] = score_dir_alt['mitSpecScore']
         merge_df_alt['offtargcount_alt'] = score_dir_alt['offtargetCount']
-        merge_df_alt['gRNA_alt'] = score_dir_alt['targetSeq'] # get rid of added on PAM site
+        merge_df_alt['gRNA_alt'] = score_dir_alt['targetSeq'] 
         # output outdir with its new score columns
-        outdf = df.merge(merge_df_ref, how='left', on='gRNA_ref')
-        outdf = df.merge(merge_df_alt, how='left', on='gRNA_alt')
-        out_list.append(outdf)
+        df = df.merge(merge_df_ref, how='left', on='gRNA_ref')
+        df = df.merge(merge_df_alt, how='left', on='gRNA_alt')
+        out_list.append(df.drop_duplicates())
     return(pd.concat(out_list))
 
 
@@ -964,6 +965,7 @@ def main(args):
         out = filter_out_N_in_PAM(out, CAS_LIST)
 
     # assign unique identifier to each sgRNA
+    out = out.reset_index(drop=True)
     out['id'] = out.index.astype(str)
     out['guide_id'] = out['cas_type'] + '_' + out['id']
 
@@ -978,6 +980,7 @@ def main(args):
         out['gRNA_alt'] = out['gRNA_alt'].replace(replace_dummy)
 
     # saves output
+    out = out[COLUMN_ORDER] 
     out.to_csv(args['<out>'] + '.tsv', sep='\t', index=False)
     logging.info('Done.')
 
