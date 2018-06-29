@@ -6,24 +6,25 @@ Written in Python v 3.6.1.
 Kathleen Keough et al 2017-2018.
 
 Usage:
-	pam_pos_genome.py <chrom> <fasta> <cas_list> <out>
+    pam_pos_genome.py <chrom> <fasta> <cas_list> <out>
 
 Arguments:
-	chrom 			Chromosome being analyzed.
-	fasta 			Fasta file for genome being analyzed.
-    cas_list        Comma separated (no spaces!) list of Cas varieties to evaluate, options below.
-	out 			Out prefix for returned files.
+    chrom             Chromosome being analyzed.
+    fasta             Fasta file for genome being analyzed.
+    cas_list          Comma separated (no spaces!) list of Cas varieties to evaluate, options below.
+    out               Out prefix for returned files.
 
 Available Cas types = cpf1,SpCas9,SpCas9_VRER,SpCas9_EQR,SpCas9_VQR_1,SpCas9_VQR_2,StCas9,StCas9_2,SaCas9,SaCas9_KKH,nmCas9,cjCas9
 """
 
 import numpy as np
-import sys
+import sys, os
 from pyfaidx import Fasta
 import pandas as pd
 import regex
 import re
 from Bio import SeqIO
+from docopt import docopt
 
 __version__='0.0.3'
 
@@ -150,31 +151,31 @@ def find_spec_pams(cas_obj,python_string,orient="3'"):
 
 def main(args):
 
-	# keep track of chromosome since this will be run with bash script
+    # keep track of chromosome since this will be run with bash script
 
-	chrom = args['<chrom>']
+    chrom = args['<chrom>']
 
-	# define output prefix
+    # define output prefix
 
-	outprefix = args['<out>']
+    outprefix = args['<out>']
 
-	# make Fasta object for genome of choice, e.g. hg19
+    # make Fasta object for genome of choice, e.g. hg19
 
-	genome = Fasta(args['<fasta>'],as_raw=True)
+    genome = Fasta(args['<fasta>'],as_raw=True)
 
-	cas_list = args['<cas_list'].split(',')
+    cas_list = args['<cas_list>'].split(',')
 
-	# get set of positions for each type of cas
+    # get set of positions for each type of cas
 
-	for cas in cas_list:
+    for cas in cas_list:
         current_cas = cas_obj.get_cas_enzyme(cas, os.path.join(cas_obj_path,'CAS_LIST.txt'))
-		for_starts, rev_starts = find_spec_pams(cas,str(genome[str(chrom)]), orient=current_cas.primeness)
-		savestr_for = f'{outprefix}chr'+str(chrom)+'_'+str(cas) + '_pam_sites_for.npy'
-		savestr_rev = f'{outprefix}chr'+str(chrom)+'_'+str(cas) + '_pam_sites_rev.npy'
-		np.save(savestr_for,list(for_starts))
-		np.save(savestr_rev,list(rev_starts))
+        for_starts, rev_starts = find_spec_pams(current_cas,str(genome[str(chrom)]), orient=current_cas.primeness)
+        savestr_for = f'{outprefix}'+str(chrom).replace('chr','')+'_'+str(cas) + '_pam_sites_for.npy'
+        savestr_rev = f'{outprefix}'+str(chrom).replace('chr','')+'_'+str(cas) + '_pam_sites_rev.npy'
+        np.save(savestr_for,list(for_starts))
+        np.save(savestr_rev,list(rev_starts))
 
 
 if __name__ == '__main__':
-	arguments = docopt(__doc__, version=__version__)
-	main(arguments)
+    arguments = docopt(__doc__, version=__version__)
+    main(arguments)
