@@ -6,7 +6,7 @@ Written in Python v 3.6.1.
 Kathleen Keough et al 2018.
 
 Usage:
-    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--hom] [--bed] [--max_indel=<S>] [--ref_guides] [--include_PAMs]
+    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--genome=<g>] [--hom] [--bed] [--max_indel=<S>] [--ref_guides] [--include_PAMs]
     gen_sgRNAs.py -C | --cas-list
 
 Arguments:
@@ -26,6 +26,7 @@ Options:
     --hom                  Use 'homozygous' mode, personalized sgRNA design.
     --crispor=<ref_gen>    Add CRISPOR specificity scores to outputted guides. From Haeussler et al. Genome Biology 2016. 
                            Equals directory name of reference genome (complete).
+    --genome=<g>           Genome, with files in the CRISPOR genome folder [default: hg19].
     --bed                  Design sgRNAs for multiple regions specified in a BED file.
     --max_indel=<S>        Maximum size for INDELS. Must be smaller than guide_length [default: 5].
     -r                     Return guides as RNA sequences rather than DNA sequences.
@@ -54,7 +55,8 @@ __version__ = '0.0.2'
 REQUIRED_BCFTOOLS_VER = '1.5'
 COLUMN_ORDER=['chrom','variant_position','ref','alt','gRNA_ref','gRNA_alt',
 'variant_position_in_guide','start','stop','strand','cas_type','guide_id']
-ANNOT_1=['rsID','AF']
+CRISPOR_COL=['scores_ref', 'offtargcount_ref', 'scores_alt',  'offtargcount_alt']
+ANNOT_COL=['rsID','AF']
 # get rid of annoying false positive Pandas error
 
 pd.options.mode.chained_assignment = None
@@ -120,7 +122,7 @@ def get_alt_seq(chrom, pam_start, var_pos, ref, alt, guide_length, pam_length, r
             # reference sgRNA
             ref_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length - 1:pam_start + pam_length - 1]
             # alt sgRNA 
-            alt_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length - 1:var_pos - 1].lower() + alt.upper() + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start + pam_length - 1].lower()
+            alt_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length - 1:var_pos - 1] + alt + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start + pam_length - 1]
         elif var_type == 'destroys_pam':
             # reference sgRNA
             ref_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length :pam_start + pam_length]
@@ -129,10 +131,10 @@ def get_alt_seq(chrom, pam_start, var_pos, ref, alt, guide_length, pam_length, r
             alt_seq = ('G' * guide_length) + ref_genome['chr'+str(chrom)][pam_start:pam_start + pam_length]
         elif var_type == 'makes_pam': # this might break with indels
             # reference sgRNA
-            ref_seq = ('G' * guide_length) + ref_genome['chr'+str(chrom)][pam_start-1:var_pos - 1] + alt.upper() + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start - 1]
+            ref_seq = ('G' * guide_length) + ref_genome['chr'+str(chrom)][pam_start:var_pos - 1] + alt + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start]
             # in this case, variant is destroying a PAM, rendering the alternate allele no longer a CRISPR site
             # therefore, for lack of a better solution, return empty alt_seq
-            alt_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length - 1:var_pos - 1].lower() + alt.upper() + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start + pam_length - 1].lower()
+            alt_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length :var_pos - 1] + alt + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start + pam_length]
         return ref_seq, alt_seq
 
     elif strand == 'negative':
@@ -164,7 +166,7 @@ def make_rev_comp(s):
     return s[::-1].translate(s[::-1].maketrans('ACGT', 'TGCA'))
 
 
-def get_crispor_scores(out_df, outdir, ref_gen):
+def get_crispor_scores(out_df, outdir, ref_gen, genome):
     """
     Integration with CRISPOR, performed after obtaining all sgRNA sequences. The out_df first needs to be split by Cas type.
     """
@@ -191,14 +193,14 @@ def get_crispor_scores(out_df, outdir, ref_gen):
                 f.write(seq)
         # get script dir
         scriptsdir = os.path.join(os.path.dirname(__file__), 'crispor')
-        run_name = os.path.join(scriptsdir, f'crispor.py --skipAlign --noEffScores -p {current_cas.forwardPam} -g {ref_gen} hg19')
-        print(run_name)
+        run_name = os.path.join(scriptsdir, f'crispor.py --skipAlign --noEffScores -p {current_cas.forwardPam} -g {ref_gen} {genome}')
+
         logging.info(f'Running crispor.')
         #error_out = os.path.join(outdir, 'crispor_error.txt')
         error_out = os.path.join(os.path.dirname(outdir), 'crispor_error.txt')
         command = f'source activate crispor; \
-        python2 {run_name} ref_seqs_nosave.fa nosave_ref_scores.tsv &> {error_out};\
-        python2 {run_name} alt_seqs_nosave.fa nosave_alt_scores.tsv &> {error_out};\
+        python2 {run_name} ref_seqs_nosave.fa {current_cas.name}_nosave_ref_scores.tsv &> {error_out};\
+        python2 {run_name} alt_seqs_nosave.fa {current_cas.name}_nosave_alt_scores.tsv &> {error_out};\
         source deactivate crispor'
         subprocess.run(command, shell=True)
         logging.info(f'crispor done.')
@@ -207,13 +209,10 @@ def get_crispor_scores(out_df, outdir, ref_gen):
         os.remove('ref_seqs_nosave.fa')
         os.remove('alt_seqs_nosave.fa')
         # grab scores from files outputted from CRISPOR
-        score_dir_ref = pd.read_csv('nosave_ref_scores.tsv', sep='\t', header=None, names=['seqId','guideId','targetSeq',
+        score_dir_ref = pd.read_csv(f'{current_cas.name}_nosave_ref_scores.tsv', sep='\t', header=None, names=['seqId','guideId','targetSeq',
             'mitSpecScore','offtargetCount','targetGenomeGeneLocus'])
-        score_dir_alt = pd.read_csv('nosave_alt_scores.tsv', sep='\t', header=None, names=['seqId','guideId','targetSeq',
+        score_dir_alt = pd.read_csv(f'{current_cas.name}_nosave_alt_scores.tsv', sep='\t', header=None, names=['seqId','guideId','targetSeq',
             'mitSpecScore','offtargetCount','targetGenomeGeneLocus'])
-        # remove original score files
-        #os.remove('nosave_ref_scores.tsv')
-        #os.remove('nosave_alt_scores.tsv')
         # merge score info with original out_df
         merge_df_ref = pd.DataFrame()
         merge_df_ref['scores_ref'] = score_dir_ref['mitSpecScore']
@@ -227,6 +226,9 @@ def get_crispor_scores(out_df, outdir, ref_gen):
         df = df.merge(merge_df_ref, how='left', on='gRNA_ref')
         df = df.merge(merge_df_alt, how='left', on='gRNA_alt')
         out_list.append(df.drop_duplicates())
+        # remove original score files
+        os.remove(f'{current_cas.name}_nosave_ref_scores.tsv')
+        os.remove(f'{current_cas.name}_nosave_alt_scores.tsv')
     return(pd.concat(out_list))
 
 
@@ -360,7 +362,6 @@ def get_allele_spec_guides(args):
         # get Cas information
         cas_obj = cas_object.get_cas_enzyme(cas)
         pam_length = len(cas_obj.forwardPam)
-
         # get positions of PAMs annotated in reference genome
         if not chrom.startswith('chr'):
             chrom = 'chr'+chrom
@@ -511,7 +512,9 @@ def get_allele_spec_guides(args):
 
     # add specificity scores if specified
     if args['--crispor']:
-        out = get_crispor_scores(grna_df, args['<out>'], args['--crispor'])
+        global COLUMN_ORDER
+        COLUMN_ORDER = COLUMN_ORDER + CRISPOR_COL
+        out = get_crispor_scores(grna_df, args['<out>'], args['--crispor'], args['--genome'])
     else:
         out = grna_df
     # get rsID and AF info if provided
@@ -865,7 +868,9 @@ def get_guides(args):
 
     # add specificity scores if specified
     if args['--crispor']:
-        out = get_crispor_scores(out, args['<out>'], args['--crispor'])
+        global COLUMN_ORDER
+        COLUMN_ORDER = COLUMN_ORDER + CRISPOR_COL
+        out = get_crispor_scores(out, args['<out>'], args['--crispor'], args['--genome'])
 
     # get rsID and AF info if provided
     if args['<gene_vars>']:
@@ -969,13 +974,21 @@ def main(args):
     out['id'] = out.index.astype(str)
     out['guide_id'] = out['cas_type'] + '_' + out['id']
 
+    if not args['--include_PAMs']:
+        for i, row in out.iterrows():
+            pam_length = len(cas_object.get_cas_enzyme(row['cas_type']).forwardPam)
+            out.loc[i, 'gRNA_ref'] = row['gRNA_ref'][:-pam_length]
+            out.loc[i, 'gRNA_alt'] = row['gRNA_alt'][:-pam_length]
+
+
     # convert to RNA
     if args['-r']:
         out['gRNA_ref'] = out['gRNA_ref'].map(lambda x: x.replace('T','U'))
         out['gRNA_alt'] = out['gRNA_alt'].map(lambda x: x.replace('T','U'))
-
+    # replace dummy guides
     if args['-d']:
-        replace_dummy = {'C'*20:'-'*20,'G'*20:'-'*20}
+        length = int(args['<guide_length>'])
+        replace_dummy = {'C'*length:'-'*length,'G'*length:'-'*length}
         out['gRNA_ref'] = out['gRNA_ref'].replace(replace_dummy)
         out['gRNA_alt'] = out['gRNA_alt'].replace(replace_dummy)
 
