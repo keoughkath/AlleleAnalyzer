@@ -995,7 +995,8 @@ def main(args):
         out['gRNA_alt'] = out['gRNA_alt'].replace(replace_dummy)
 
     # saves output
-    out = out[COLUMN_ORDER] 
+    out = out[COLUMN_ORDER]
+    out.sort_values(['variant_position', 'variant_position_in_guide'], ascending=[True, True])
     out.to_csv(args['<out>'] + '.tsv', sep='\t', index=False)
     logging.info('Done.')
 
