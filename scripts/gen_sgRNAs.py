@@ -131,11 +131,11 @@ def get_alt_seq(chrom, pam_start, var_pos, ref, alt, guide_length, pam_length, r
             alt_seq = ('G' * guide_length) + ref_genome['chr'+str(chrom)][pam_start:pam_start + pam_length]
         elif var_type == 'makes_pam': # this might break with indels
             # reference sgRNA
-            ref_seq = ('G' * guide_length) + ref_genome['chr'+str(chrom)][pam_start:var_pos - 1] + alt + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start]
+            ref_seq = ('G' * guide_length) + ref_genome['chr'+str(chrom)][pam_start:var_pos - 1] + alt + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start+pam_length]
             # in this case, variant is destroying a PAM, rendering the alternate allele no longer a CRISPR site
             # therefore, for lack of a better solution, return empty alt_seq
             alt_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length :var_pos - 1] + alt + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start + pam_length]
-        return ref_seq, alt_seq
+        return ref_seq.upper(), alt_seq.upper()
 
     elif strand == 'negative':
         if var_type == 'near_pam':
@@ -153,7 +153,7 @@ def get_alt_seq(chrom, pam_start, var_pos, ref, alt, guide_length, pam_length, r
             # reference sgRNA
             ref_seq = ref_genome['chr'+str(chrom)][pam_start - pam_length:var_pos - 1] + alt + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start] + ('C' * guide_length)
             alt_seq = ref_genome['chr'+str(chrom)][pam_start - pam_length:var_pos - 1] + alt + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start + guide_length]
-        return ref_seq, alt_seq
+        return ref_seq.upper(), alt_seq.upper()
     else:
         logging.info ('Must specify strand.')
         exit(1)
@@ -232,28 +232,28 @@ def get_crispor_scores(out_df, outdir, ref_gen, genome):
     return(pd.concat(out_list))
 
 
-def verify_hdf_files(gen_file, annots_file, chrom, start, stop, max_indel):
+def verify_hdf_files(annots_file, chrom, start, stop, max_indel):
     """
     Compares the hdf files, and makes sure the hdf files contain 
     variants in the specified range.
     """
     start, stop = int(start), int(stop)
     comp = ['chrom', 'pos', 'ref', 'alt']
-    if not gen_file[comp].equals(annots_file[comp]):
-        logging.error('ERROR: gen file and targ file variants do not match.')
-        exit(1)
+    # if not gen_file[comp].equals(annots_file[comp]):
+    #     logging.error('ERROR: gen file and targ file variants do not match.')
+    #     exit(1)
     #Check chr
-    if not len(Counter(gen_file['chrom']).keys()) == 1:
-        logging.error("ERROR: variants map to different chromosomes") # Should exit?
-        exit(0)
+    # if not len(Counter(gen_file['chrom']).keys()) == 1:
+    #     logging.error("ERROR: variants map to different chromosomes") # Should exit?
+    #     exit(0)
     # Check vars
-    if not all(start < int(i) < stop  for i in gen_file['pos']):
+    if not all(start < int(i) < stop  for i in annots_file['pos']):
         logging.info('Warning: Not all variants are between the defined ranges')
-    if not any(start < int(i) < stop  for i in gen_file['pos']):
+    if not any(start < int(i) < stop  for i in annots_file['pos']):
         logging.error('ERROR: no variants in defined range.')
     # Iterate through the gens file, remove all rows with indels larger than 'max_indel' (in both the re and alt).
-    indel_too_large = [ all(len(i) <= max_indel for i in (row['ref'],row['alt'])) for _, row in gen_file.iterrows() ]
-    return gen_file[indel_too_large], annots_file[indel_too_large]
+    indel_too_large = [ all(len(i) <= max_indel for i in (row['ref'],row['alt'])) for _, row in annots_file.iterrows() ]
+    return annots_file[indel_too_large]
 
 
 def filter_out_N_in_PAM(outdf, cas_ins):
@@ -323,32 +323,34 @@ def get_allele_spec_guides(args):
 
     chrom = norm_chr(chrom, chrstart)
     # eliminates rows with missing genotypes and gets those where heterozygous
-    bcl_v = f'bcftools view -g ^miss -g het -r {chrom}:{start}-{stop} -H {bcf}'
-    col_names = ['chrom','pos','rsid','ref','alt','score','random','info','gt','genotype']
-    bcl_view = subprocess.Popen(bcl_v, shell=True, stdout=subprocess.PIPE)
-    bcl_view.wait()
+    # bcl_v = f'bcftools view -g ^miss -g het -r {chrom}:{start}-{stop} -H {bcf}'
+    # col_names = ['chrom','pos','ref','alt']
+    # print(bcl_v)
+    # bcl_view = subprocess.Popen(bcl_v, shell=True, stdout=subprocess.PIPE)
+    # # splits multiallelic sites into multiple lines
 
-    gens = pd.read_csv(StringIO(bcl_view.communicate()[0].decode("utf-8")),sep='\t',
-    header=None, names=col_names, usecols=['chrom','pos','ref','alt','genotype'])
+
+    # gens = pd.read_csv(StringIO(bcl_query.communicate()[0].decode("utf-8")), sep='\t', 
+    #         header=None, names=['chrom','pos','ref','alt'])
 
     # load variant annotations
     var_annots = pd.read_hdf(args['<annots_file>'])
 
     # remove big indels
-    gens, var_annots = verify_hdf_files(gens, var_annots, chrom, start, stop, int(args['--max_indel']))
+    var_annots = verify_hdf_files(var_annots, chrom, start, stop, int(args['--max_indel']))
 
     # if gens is empty, annots should be too, double check this
-    if gens.empty and not var_annots.empty:
-        logging.info('Gens and annots not matching up - debug.')
-        exit(1)
+    # if gens.empty and not var_annots.empty:
+    #     logging.info('Gens and annots not matching up - debug.')
+    #     exit(1)
 
     # if no variants annotated, no allele-specific guides possilbe
-    if gens.empty:
+    if var_annots.empty:
         logging.info('No hetorozygous variants, thus no allele-specific guides for this locus.')
         return None
 
     # output number of heterozygous variants in locus
-    variants = set(gens.pos.tolist())
+    variants = set(var_annots.pos.tolist())
     logging.info('There are ' + str(len(variants)) + ' heterozygous variants in this locus in this genome.')
 
     # set up what will become the output dataframe
@@ -439,7 +441,7 @@ def get_allele_spec_guides(args):
                 chrom = norm_chr(chrom, chrstart)
                 grna_dicts.append(dict(zip(['chrom','start','stop','ref','alt','variant_position_in_guide','gRNA_ref','gRNA_alt',
                     'variant_position','strand','cas_type'],[str(chrom), (pam_site - guide_length), (pam_site), row['ref'], 
-                    row['alt'],(pam_site + pam_length - var), grna_ref_seq, grna_alt_seq, var, '+', cas])))
+                    row['alt'],(pam_site + pam_length - var), grna_ref_seq.upper(), grna_alt_seq.upper(), var, '+', cas])))
 
             for pam in lost_pams_rev:
                 chrom = chrom.replace('chr','')
@@ -454,7 +456,7 @@ def get_allele_spec_guides(args):
                 chrom = norm_chr(chrom, chrstart)
                 grna_dicts.append(dict(zip(['chrom','start','stop','ref','alt','variant_position_in_guide','gRNA_ref','gRNA_alt',
                     'variant_position','strand','cas_type'],[str(chrom), (pam_site), (pam_site + guide_length), ref_allele, 
-                    alt_allele,(var - pam_site + pam_length - 1), grna_ref_seq, grna_alt_seq, var, '-', cas])))
+                    alt_allele,(var - pam_site + pam_length - 1), grna_ref_seq.upper(), grna_alt_seq.upper(), var, '-', cas])))
 
         # design guides for heterozygous variants that make PAMs 
         for index, row in vars_make_pam.iterrows():
@@ -490,7 +492,7 @@ def get_allele_spec_guides(args):
                 chrom = norm_chr(chrom, chrstart)
                 grna_dicts.append(dict(zip(['chrom','start','stop','ref','alt','variant_position_in_guide','gRNA_ref','gRNA_alt',
                     'variant_position','strand','cas_type'],[str(chrom), (pam_site - guide_length), (pam_site), row['ref'], 
-                    row['alt'],(pam_site + pam_length - var), grna_ref_seq, grna_alt_seq, var, '+', cas])))
+                    row['alt'],(pam_site + pam_length - var), grna_ref_seq.upper(), grna_alt_seq.upper(), var, '+', cas])))
 
             for pam in made_pams_rev:
                 chrom = chrom.replace('chr','')
@@ -505,7 +507,7 @@ def get_allele_spec_guides(args):
                 chrom = norm_chr(chrom, chrstart)
                 grna_dicts.append(dict(zip(['chrom','start','stop','ref','alt','variant_position_in_guide','gRNA_ref','gRNA_alt',
                     'variant_position','strand','cas_type'],[str(chrom), (pam_site), (pam_site + guide_length), ref_allele, 
-                    alt_allele,(var - pam_site + pam_length - 1), grna_ref_seq, grna_alt_seq, var, '-', cas])))
+                    alt_allele,(var - pam_site + pam_length - 1), grna_ref_seq.upper(), grna_alt_seq.upper(), var, '-', cas])))
 
 
     grna_df = pd.DataFrame(grna_dicts)
