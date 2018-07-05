@@ -6,7 +6,7 @@ Written in Python v 3.6.1.
 Kathleen Keough et al 2018.
 
 Usage:
-    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--hom] [--bed] [--max_indel=<S>] [--ref_guides] [--strict]
+    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--genome=<g>] [--hom] [--bed] [--max_indel=<S>] [--ref_guides] [--strict] [--include_PAMs]
     gen_sgRNAs.py -C | --cas-list
 
 Arguments:
@@ -26,13 +26,16 @@ Options:
     --hom                  Use 'homozygous' mode, personalized sgRNA design.
     --crispor=<ref_gen>    Add CRISPOR specificity scores to outputted guides. From Haeussler et al. Genome Biology 2016. 
                            Equals directory name of reference genome (complete).
+    --genome=<g>           Genome, with files in the CRISPOR genome folder [default: hg19].
     --bed                  Design sgRNAs for multiple regions specified in a BED file.
     --max_indel=<S>        Maximum size for INDELS. Must be smaller than guide_length [default: 5].
     -r                     Return guides as RNA sequences rather than DNA sequences.
     -d                     Return dummy guides (all --- as opposed to GGG or CCC) for variants without a PAM, e.g. when variant makes or breaks a PAM. 
     -C --cas-list          List available cas types and exits.
     --ref_guides           Design guides for reference genome, ignoring variants in region.
+    --include_PAMs         When replorting the sgRNA sequence, include the PAM sequence. Default False.
     --strict               Only design allele-specific guides where the variant makes or breaks a PAM site. 
+
 """
 
 import pandas as pd
@@ -49,12 +52,13 @@ import subprocess
 from io import StringIO
 import logging
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 REQUIRED_BCFTOOLS_VER = '1.5'
-
-# COLUMN_ORDER=['chrom','variant_position','ref','alt','gRNA_ref','gRNA_alt',
-# 'variant_position_in_guide','start','stop','strand','cas_type','guide_id','rsID','AF']
+COLUMN_ORDER=['chrom','variant_position','ref','alt','gRNA_ref','gRNA_alt',
+'variant_position_in_guide','start','stop','strand','cas_type','guide_id']
+CRISPOR_COL=['scores_ref', 'offtargcount_ref', 'scores_alt',  'offtargcount_alt']
+ANNOT_COL=['rsID','AF']
 # get rid of annoying false positive Pandas error
 
 pd.options.mode.chained_assignment = None
@@ -113,60 +117,46 @@ def check_bcftools():
         exit(1)
 
 
-def get_alt_seq(chrom, pam_start, var_pos, ref, alt, guide_length, ref_genome, strand='positive', var_type='near_pam'):
-
+def get_alt_seq(chrom, pam_start, var_pos, ref, alt, guide_length, pam_length, ref_genome, strand='positive', var_type='near_pam'):
     chrom = chrom.replace('chr','')
-
     if strand == 'positive':
         if var_type == 'near_pam':
             # reference sgRNA
-            ref_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length - 1:pam_start - 1]
+            ref_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length - 1:pam_start + pam_length - 1]
             # alt sgRNA 
-            alt_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length - 1:var_pos - 1].lower() + alt.upper() + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start - 1].lower()
-
+            alt_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length - 1:var_pos - 1] + alt + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start + pam_length - 1]
         elif var_type == 'destroys_pam':
-
             # reference sgRNA
-            ref_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length - 1:pam_start - 1]
+            ref_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length :pam_start + pam_length]
             # in this case, variant is destroying a PAM, rendering the alternate allele no longer a CRISPR site
             # therefore, for lack of a better solution, return empty alt_seq
-            alt_seq = 'G' * guide_length
-
+            alt_seq = ('G' * guide_length) + ref_genome['chr'+str(chrom)][pam_start:pam_start + pam_length]
         elif var_type == 'makes_pam': # this might break with indels
-
             # reference sgRNA
-            ref_seq = 'G' * guide_length
-
+            ref_seq = ('G' * guide_length) + ref_genome['chr'+str(chrom)][pam_start:var_pos - 1] + alt + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start+pam_length]
             # in this case, variant is destroying a PAM, rendering the alternate allele no longer a CRISPR site
             # therefore, for lack of a better solution, return empty alt_seq
-            alt_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length - 1:pam_start - 1]
+            alt_seq = ref_genome['chr'+str(chrom)][pam_start - guide_length :var_pos - 1] + alt + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start + pam_length]
         return ref_seq.upper(), alt_seq.upper()
 
     elif strand == 'negative':
         if var_type == 'near_pam':
-
             # reference sgRNA
-            ref_seq = ref_genome['chr'+str(chrom)][pam_start:pam_start + guide_length]
+            ref_seq = ref_genome['chr'+str(chrom)][pam_start - pam_length:pam_start + guide_length]
             # alt sgRNA 
-            alt_seq = ref_genome['chr'+str(chrom)][pam_start:var_pos - 1] + alt + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start + guide_length]
-
+            alt_seq = ref_genome['chr'+str(chrom)][pam_start - pam_length:var_pos - 1] + alt + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start + guide_length]
         elif var_type == 'destroys_pam':
-
             # reference sgRNA
-            ref_seq = ref_genome['chr'+str(chrom)][pam_start:pam_start + guide_length]
-
+            ref_seq = ref_genome['chr'+str(chrom)][pam_start - pam_length:pam_start + guide_length]
             # in this case, variant is destroying a PAM, rendering the alternate allele no longer a CRISPR site
             # therefore, for lack of a better solution, return empty alt_seq
-            alt_seq = 'G' * guide_length
-
+            alt_seq = ref_genome['chr'+str(chrom)][pam_start - pam_length:pam_start] + ('C' * guide_length)
         elif var_type == 'makes_pam': # this might break with indels
-
             # reference sgRNA
-            ref_seq = 'G' * guide_length
-            alt_seq = ref_genome['chr'+str(chrom)][pam_start:pam_start + guide_length ]
+            ref_seq = ref_genome['chr'+str(chrom)][pam_start - pam_length:var_pos - 1] + alt + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start] + ('C' * guide_length)
+            alt_seq = ref_genome['chr'+str(chrom)][pam_start - pam_length:var_pos - 1] + alt + ref_genome['chr'+str(chrom)][var_pos + len(alt) - 1:pam_start + guide_length]
         return ref_seq.upper(), alt_seq.upper()
     else:
-
         logging.info ('Must specify strand.')
         exit(1)
 
@@ -178,79 +168,94 @@ def make_rev_comp(s):
     return s[::-1].translate(s[::-1].maketrans('ACGT', 'TGCA'))
 
 
-def get_crispor_scores(out_df, outdir, ref_gen):
-    guide_seqs_ref = ['>ref_guide_seqs\n']
-    guide_seqs_alt = ['>alt_guide_seqs\n']
-    for index, row in out_df.iterrows():
-        guide_seqs_ref.append(row['gRNA_ref'] + 'GGGNN\n') # the NN splits things up for CRISPOR
-        guide_seqs_alt.append(row['gRNA_alt'] + 'GGGNN\n')
-    with open('ref_seqs_nosave.fa', 'w') as f:
-        for seq in guide_seqs_ref:
-            f.write(seq)
-    with open('alt_seqs_nosave.fa', 'w') as f:
-        for seq in guide_seqs_alt:
-            f.write(seq)
-    # get script dir
-    scriptsdir = os.path.join(os.path.dirname(__file__), 'crispor')
-    run_name = os.path.join(scriptsdir, f'crispor.py --skipAlign --noEffScores -g {ref_gen} {ref_gen}')
-    print('Running crispor.')
-    #error_out = os.path.join(outdir, 'crispor_error.txt')
-    error_out = os.path.join(os.path.dirname(outdir), 'crispor_error.txt')
-    command = f'source activate crispor; \
-    python2 {run_name} ref_seqs_nosave.fa nosave_ref_scores.tsv &> {error_out};\
-    python2 {run_name} alt_seqs_nosave.fa nosave_alt_scores.tsv &> {error_out};\
-    source deactivate crispor'
-    subprocess.run(command, shell=True)
-    print('crispor done')
-    # subprocess.run('source deactivate crispor', shell=True)
-    # remove seq files
-    os.remove('ref_seqs_nosave.fa')
-    os.remove('alt_seqs_nosave.fa')
-    # grab scores from files outputted from CRISPOR
-    score_dir_ref = pd.read_csv('nosave_ref_scores.tsv', sep='\t', header=None, names=['seqId','guideId','targetSeq',
-        'mitSpecScore','offtargetCount','targetGenomeGeneLocus'])
-    score_dir_alt = pd.read_csv('nosave_alt_scores.tsv', sep='\t', header=None, names=['seqId','guideId','targetSeq',
-        'mitSpecScore','offtargetCount','targetGenomeGeneLocus'])
-    # remove original score files
-    os.remove('nosave_ref_scores.tsv')
-    os.remove('nosave_alt_scores.tsv')
-    # merge score info with original out_df
-    merge_df_ref = pd.DataFrame()
-    merge_df_ref['scores_ref'] = score_dir_ref['mitSpecScore']
-    merge_df_ref['offtargcount_ref'] = score_dir_ref['offtargetCount']
-    merge_df_ref['gRNA_ref'] = score_dir_ref['targetSeq'].str[:-3] # get rid of added on PAM site
-    merge_df_alt = pd.DataFrame()
-    merge_df_alt['scores_alt'] = score_dir_alt['mitSpecScore']
-    merge_df_alt['offtargcount_alt'] = score_dir_alt['offtargetCount']
-    merge_df_alt['gRNA_alt'] = score_dir_alt['targetSeq'].str[:-3] # get rid of added on PAM site
-    # output outdir with its new score columns
-    outdf = out_df.merge(merge_df_ref, how='left', on='gRNA_ref')
-    outdf = outdf.merge(merge_df_alt, how='left', on='gRNA_alt')
-    return(outdf)
+def get_crispor_scores(out_df, outdir, ref_gen, genome):
+    """
+    Integration with CRISPOR, performed after obtaining all sgRNA sequences. The out_df first needs to be split by Cas type.
+    """
+
+    # Edif ref_gen pack to make it absolute for CRIPSOR compatability.
+    ref_gen = os.path.abspath(ref_gen)
+
+    ## Seperate cas_list by cas name, and run CRISPOR indipendantly on each type of cas.
+    cas_list = list(dict(Counter(out_df.cas_type)).keys())
+    split_df = [ out_df.loc[out_df['cas_type'] == c] for c in cas_list ]
+    out_list = []
+    for i, df in enumerate(split_df):
+        current_cas = cas_object.get_cas_enzyme(cas_list[i])
+        guide_seqs_ref = ['>ref_guide_seqs\n']
+        guide_seqs_alt = ['>alt_guide_seqs\n']
+        for index, row in df.iterrows():
+            guide_seqs_ref.append(row['gRNA_ref'] + 'NN\n') # the NN splits things up for CRISPOR
+            guide_seqs_alt.append(row['gRNA_alt'] + 'NN\n')
+        with open('ref_seqs_nosave.fa', 'w') as f:
+            for seq in guide_seqs_ref:
+                f.write(seq)
+        with open('alt_seqs_nosave.fa', 'w') as f:
+            for seq in guide_seqs_alt:
+                f.write(seq)
+        # get script dir
+        scriptsdir = os.path.join(os.path.dirname(__file__), 'crispor')
+        run_name = os.path.join(scriptsdir, f'crispor.py --skipAlign --noEffScores -p {current_cas.forwardPam} -g {ref_gen} {genome}')
+
+        logging.info(f'Running crispor.')
+        #error_out = os.path.join(outdir, 'crispor_error.txt')
+        error_out = os.path.join(os.path.dirname(outdir), 'crispor_error.txt')
+        command = f'source activate crispor; \
+        python2 {run_name} ref_seqs_nosave.fa {current_cas.name}_nosave_ref_scores.tsv &> {error_out};\
+        python2 {run_name} alt_seqs_nosave.fa {current_cas.name}_nosave_alt_scores.tsv &> {error_out};\
+        source deactivate crispor'
+        subprocess.run(command, shell=True)
+        logging.info(f'crispor done.')
+        # subprocess.run('source deactivate crispor', shell=True)
+        # remove seq files
+        os.remove('ref_seqs_nosave.fa')
+        os.remove('alt_seqs_nosave.fa')
+        # grab scores from files outputted from CRISPOR
+        score_dir_ref = pd.read_csv(f'{current_cas.name}_nosave_ref_scores.tsv', sep='\t', header=None, names=['seqId','guideId','targetSeq',
+            'mitSpecScore','offtargetCount','targetGenomeGeneLocus'])
+        score_dir_alt = pd.read_csv(f'{current_cas.name}_nosave_alt_scores.tsv', sep='\t', header=None, names=['seqId','guideId','targetSeq',
+            'mitSpecScore','offtargetCount','targetGenomeGeneLocus'])
+        # merge score info with original out_df
+        merge_df_ref = pd.DataFrame()
+        merge_df_ref['scores_ref'] = score_dir_ref['mitSpecScore']
+        merge_df_ref['offtargcount_ref'] = score_dir_ref['offtargetCount']
+        merge_df_ref['gRNA_ref'] = score_dir_ref['targetSeq'] 
+        merge_df_alt = pd.DataFrame()
+        merge_df_alt['scores_alt'] = score_dir_alt['mitSpecScore']
+        merge_df_alt['offtargcount_alt'] = score_dir_alt['offtargetCount']
+        merge_df_alt['gRNA_alt'] = score_dir_alt['targetSeq'] 
+        # output outdir with its new score columns
+        df = df.merge(merge_df_ref, how='left', on='gRNA_ref')
+        df = df.merge(merge_df_alt, how='left', on='gRNA_alt')
+        out_list.append(df.drop_duplicates())
+        # remove original score files
+        os.remove(f'{current_cas.name}_nosave_ref_scores.tsv')
+        os.remove(f'{current_cas.name}_nosave_alt_scores.tsv')
+    return(pd.concat(out_list))
 
 
-def verify_hdf_files(gen_file, annots_file, chrom, start, stop, max_indel):
+def verify_hdf_files(annots_file, chrom, start, stop, max_indel):
     """
     Compares the hdf files, and makes sure the hdf files contain 
     variants in the specified range.
     """
     start, stop = int(start), int(stop)
     comp = ['chrom', 'pos', 'ref', 'alt']
-    if not gen_file[comp].equals(annots_file[comp]):
-        logging.error('ERROR: gen file and targ file variants do not match.')
-        exit(1)
+    # if not gen_file[comp].equals(annots_file[comp]):
+    #     logging.error('ERROR: gen file and targ file variants do not match.')
+    #     exit(1)
     #Check chr
-    if not len(Counter(gen_file['chrom']).keys()) == 1:
-        logging.error("ERROR: variants map to different chromosomes") # Should exit?
-        exit(0)
+    # if not len(Counter(gen_file['chrom']).keys()) == 1:
+    #     logging.error("ERROR: variants map to different chromosomes") # Should exit?
+    #     exit(0)
     # Check vars
-    if not all(start < int(i) < stop  for i in gen_file['pos']):
+    if not all(start < int(i) < stop  for i in annots_file['pos']):
         logging.info('Warning: Not all variants are between the defined ranges')
-    if not any(start < int(i) < stop  for i in gen_file['pos']):
+    if not any(start < int(i) < stop  for i in annots_file['pos']):
         logging.error('ERROR: no variants in defined range.')
     # Iterate through the gens file, remove all rows with indels larger than 'max_indel' (in both the re and alt).
-    indel_too_large = [ all(len(i) <= max_indel for i in (row['ref'],row['alt'])) for _, row in gen_file.iterrows() ]
-    return gen_file[indel_too_large], annots_file[indel_too_large]
+    indel_too_large = [ all(len(i) <= max_indel for i in (row['ref'],row['alt'])) for _, row in annots_file.iterrows() ]
+    return annots_file[indel_too_large]
 
 
 def filter_out_N_in_PAM(outdf, cas_ins):
@@ -320,33 +325,35 @@ def get_allele_spec_guides(args):
 
     chrom = norm_chr(chrom, chrstart)
     # eliminates rows with missing genotypes and gets those where heterozygous
-    bcl_v = f'bcftools view -g ^miss -g het -r {chrom}:{start}-{stop} -H {bcf}'
-    col_names = ['chrom','pos','rsid','ref','alt','score','random','info','gt','genotype']
-    bcl_view = subprocess.Popen(bcl_v, shell=True, stdout=subprocess.PIPE)
-    bcl_view.wait()
+    # bcl_v = f'bcftools view -g ^miss -g het -r {chrom}:{start}-{stop} -H {bcf}'
+    # col_names = ['chrom','pos','ref','alt']
+    # print(bcl_v)
+    # bcl_view = subprocess.Popen(bcl_v, shell=True, stdout=subprocess.PIPE)
+    # # splits multiallelic sites into multiple lines
 
-    gens = pd.read_csv(StringIO(bcl_view.communicate()[0].decode("utf-8")),sep='\t',
-    header=None, names=col_names, usecols=['chrom','pos','ref','alt','genotype'])
+
+    # gens = pd.read_csv(StringIO(bcl_query.communicate()[0].decode("utf-8")), sep='\t', 
+    #         header=None, names=['chrom','pos','ref','alt'])
 
     # load variant annotations
     var_annots = pd.read_hdf(args['<annots_file>'])
 
     # remove big indels
-    gens, var_annots = verify_hdf_files(gens, var_annots, chrom, start, stop, int(args['--max_indel']))
+    var_annots = verify_hdf_files(var_annots, chrom, start, stop, int(args['--max_indel']))
 
     # if gens is empty, annots should be too, double check this
-    if gens.empty and not var_annots.empty:
-        logging.info('Check that you used the same coordinates for generating the annots file \
-            as are being used here.')
-        exit(1)
+    # if gens.empty and not var_annots.empty:
+    #     logging.info('Gens and annots not matching up - debug.')
+    #     exit(1)
+
 
     # if no variants annotated, no allele-specific guides possilbe
-    if gens.empty:
+    if var_annots.empty:
         logging.info('No hetorozygous variants, thus no allele-specific guides for this locus.')
         return None
 
     # output number of heterozygous variants in locus
-    variants = set(gens.pos.tolist())
+    variants = set(var_annots.pos.tolist())
     logging.info('There are ' + str(len(variants)) + ' heterozygous variants in this locus in this genome.')
 
     # set up what will become the output dataframe
@@ -360,7 +367,6 @@ def get_allele_spec_guides(args):
         # get Cas information
         cas_obj = cas_object.get_cas_enzyme(cas)
         pam_length = len(cas_obj.forwardPam)
-
         # get positions of PAMs annotated in reference genome
         if not chrom.startswith('chr'):
             chrom = 'chr'+chrom
@@ -435,20 +441,20 @@ def get_allele_spec_guides(args):
                 pam_site = pam + var - 11
                 ref_allele = ref
                 alt_allele = alt
-                grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome, 
+                grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, int(guide_length), pam_length, ref_genome, 
                     var_type='destroys_pam')
 
                 chrom = norm_chr(chrom, chrstart)
                 grna_dicts.append(dict(zip(['chrom','start','stop','ref','alt','variant_position_in_guide','gRNA_ref','gRNA_alt',
                     'variant_position','strand','cas_type'],[str(chrom), (pam_site - guide_length), (pam_site), row['ref'], 
-                    row['alt'],(pam_site + pam_length - var), grna_ref_seq, grna_alt_seq, var, '+', cas])))
+                    row['alt'],(pam_site + pam_length - var), grna_ref_seq.upper(), grna_alt_seq.upper(), var, '+', cas])))
 
             for pam in lost_pams_rev:
                 chrom = chrom.replace('chr','')
                 pam_site = pam + var - 11
                 ref_allele = ref
                 alt_allele = alt
-                grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome, 
+                grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, int(guide_length), pam_length, ref_genome, 
                     strand='negative', var_type='destroys_pam')
                 if not args['-c']:
                     grna_ref_seq, grna_alt_seq = make_rev_comp(grna_ref_seq), make_rev_comp(grna_alt_seq)
@@ -456,7 +462,7 @@ def get_allele_spec_guides(args):
                 chrom = norm_chr(chrom, chrstart)
                 grna_dicts.append(dict(zip(['chrom','start','stop','ref','alt','variant_position_in_guide','gRNA_ref','gRNA_alt',
                     'variant_position','strand','cas_type'],[str(chrom), (pam_site), (pam_site + guide_length), ref_allele, 
-                    alt_allele,(var - pam_site + pam_length - 1), grna_ref_seq, grna_alt_seq, var, '-', cas])))
+                    alt_allele,(var - pam_site + pam_length - 1), grna_ref_seq.upper(), grna_alt_seq.upper(), var, '-', cas])))
 
         # design guides for heterozygous variants that make PAMs 
         for index, row in vars_make_pam.iterrows():
@@ -486,20 +492,20 @@ def get_allele_spec_guides(args):
                 pam_site = var - 11 + pam
                 ref_allele = ref
                 alt_allele = alt
-                grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome, 
+                grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, int(guide_length), pam_length, ref_genome, 
                     var_type='makes_pam')
 
                 chrom = norm_chr(chrom, chrstart)
                 grna_dicts.append(dict(zip(['chrom','start','stop','ref','alt','variant_position_in_guide','gRNA_ref','gRNA_alt',
                     'variant_position','strand','cas_type'],[str(chrom), (pam_site - guide_length), (pam_site), row['ref'], 
-                    row['alt'],(pam_site + pam_length - var), grna_ref_seq, grna_alt_seq, var, '+', cas])))
+                    row['alt'],(pam_site + pam_length - var), grna_ref_seq.upper(), grna_alt_seq.upper(), var, '+', cas])))
 
             for pam in made_pams_rev:
                 chrom = chrom.replace('chr','')
                 pam_site = var - 11 + pam
                 ref_allele = ref
                 alt_allele = alt
-                grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome, 
+                grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, int(guide_length), pam_length, ref_genome, 
                     strand='negative', var_type='makes_pam')
                 if not args['-c']:
                     grna_ref_seq, grna_alt_seq = make_rev_comp(grna_ref_seq), make_rev_comp(grna_alt_seq)
@@ -507,14 +513,16 @@ def get_allele_spec_guides(args):
                 chrom = norm_chr(chrom, chrstart)
                 grna_dicts.append(dict(zip(['chrom','start','stop','ref','alt','variant_position_in_guide','gRNA_ref','gRNA_alt',
                     'variant_position','strand','cas_type'],[str(chrom), (pam_site), (pam_site + guide_length), ref_allele, 
-                    alt_allele,(var - pam_site + pam_length - 1), grna_ref_seq, grna_alt_seq, var, '-', cas])))
+                    alt_allele,(var - pam_site + pam_length - 1), grna_ref_seq.upper(), grna_alt_seq.upper(), var, '-', cas])))
 
 
     grna_df = pd.DataFrame(grna_dicts)
 
     # add specificity scores if specified
     if args['--crispor']:
-        out = get_crispor_scores(grna_df, args['<out>'], args['--crispor'])
+        global COLUMN_ORDER
+        COLUMN_ORDER = COLUMN_ORDER + CRISPOR_COL
+        out = get_crispor_scores(grna_df, args['<out>'], args['--crispor'], args['--genome'])
     else:
         out = grna_df
     # get rsID and AF info if provided
@@ -723,7 +731,7 @@ def get_guides(args):
                     ref_allele = hom_gens.query('pos == @var')['ref'].item()
                     alt_allele = hom_gens.query('pos == @var')['alt'].item()
                     grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, 
-                    alt_allele, guide_length, ref_genome, var_type='near_pam')
+                    alt_allele, int(guide_length), pam_length, ref_genome, var_type='near_pam')
                     starts.append(pos - guide_length - 1)
                     stops.append(pos - 1)
                     refs.append(ref_allele)
@@ -778,7 +786,7 @@ def get_guides(args):
                 pam_site = var - 11 + pam_start
                 ref_allele = ref
                 alt_allele = alt
-                grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome, 
+                grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, int(guide_length), pam_length, ref_genome, 
                     var_type='makes_pam')
                 starts.append(pam_site - guide_length)
                 stops.append(pam_site)
@@ -795,7 +803,7 @@ def get_guides(args):
                 pam_site = var - 11 + pam_start
                 ref_allele = ref
                 alt_allele = alt
-                grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, guide_length, ref_genome, 
+                grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, alt_allele, int(guide_length), pam_length, ref_genome, 
                     strand='negative', var_type='makes_pam')
                 if not args['-c']:
                     grna_ref_seq, grna_alt_seq = make_rev_comp(grna_ref_seq), make_rev_comp(grna_alt_seq)
@@ -831,7 +839,7 @@ def get_guides(args):
                     alt_allele = hom_gens.query('pos == @var')['alt'].item()
                     ref_allele = hom_gens.query('pos == @var')['ref'].item()
                     grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, ref_allele, 
-                    alt_allele, guide_length, ref_genome, var_type='near_pam', strand='negative')
+                    alt_allele, int(guide_length), pam_length, ref_genome, var_type='near_pam', strand='negative')
                     starts.append(pam_site)
                     stops.append(pam_site + guide_length)
                     refs.append(ref_allele)
@@ -868,7 +876,9 @@ def get_guides(args):
 
     # add specificity scores if specified
     if args['--crispor']:
-        out = get_crispor_scores(out, args['<out>'], args['--crispor'])
+        global COLUMN_ORDER
+        COLUMN_ORDER = COLUMN_ORDER + CRISPOR_COL
+        out = get_crispor_scores(out, args['<out>'], args['--crispor'], args['--genome'])
 
     # get rsID and AF info if provided
     if args['<gene_vars>']:
@@ -968,20 +978,31 @@ def main(args):
         out = filter_out_N_in_PAM(out, CAS_LIST)
 
     # assign unique identifier to each sgRNA
+    out = out.reset_index(drop=True)
     out['id'] = out.index.astype(str)
     out['guide_id'] = out['cas_type'] + '_' + out['id']
+
+    if not args['--include_PAMs']:
+        for i, row in out.iterrows():
+            pam_length = len(cas_object.get_cas_enzyme(row['cas_type']).forwardPam)
+            out.loc[i, 'gRNA_ref'] = row['gRNA_ref'][:-pam_length]
+            out.loc[i, 'gRNA_alt'] = row['gRNA_alt'][:-pam_length]
+
 
     # convert to RNA
     if args['-r']:
         out['gRNA_ref'] = out['gRNA_ref'].map(lambda x: x.replace('T','U'))
         out['gRNA_alt'] = out['gRNA_alt'].map(lambda x: x.replace('T','U'))
-
+    # replace dummy guides
     if args['-d']:
-        replace_dummy = {'C'*20:'-'*20,'G'*20:'-'*20}
+        length = int(args['<guide_length>'])
+        replace_dummy = {'C'*length:'-'*length,'G'*length:'-'*length}
         out['gRNA_ref'] = out['gRNA_ref'].replace(replace_dummy)
         out['gRNA_alt'] = out['gRNA_alt'].replace(replace_dummy)
 
     # saves output
+    out = out[COLUMN_ORDER]
+    out.sort_values(['variant_position', 'variant_position_in_guide'], ascending=[True, True])
     out.to_csv(args['<out>'] + '.tsv', sep='\t', index=False)
     logging.info('Done.')
 
