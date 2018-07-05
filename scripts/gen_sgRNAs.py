@@ -6,7 +6,7 @@ Written in Python v 3.6.1.
 Kathleen Keough et al 2018.
 
 Usage:
-    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--genome=<g>] [--hom] [--bed] [--max_indel=<S>] [--ref_guides] [--include_PAMs]
+    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--genome=<g>] [--hom] [--bed] [--max_indel=<S>] [--ref_guides] [--strict] [--include_PAMs]
     gen_sgRNAs.py -C | --cas-list
 
 Arguments:
@@ -30,10 +30,12 @@ Options:
     --bed                  Design sgRNAs for multiple regions specified in a BED file.
     --max_indel=<S>        Maximum size for INDELS. Must be smaller than guide_length [default: 5].
     -r                     Return guides as RNA sequences rather than DNA sequences.
-    -d                     Return dummy guides for variants without a PAM, e.g. when variant makes or breaks a PAM. 
+    -d                     Return dummy guides (all --- as opposed to GGG or CCC) for variants without a PAM, e.g. when variant makes or breaks a PAM. 
     -C --cas-list          List available cas types and exits.
     --ref_guides           Design guides for reference genome, ignoring variants in region.
     --include_PAMs         When replorting the sgRNA sequence, include the PAM sequence. Default False.
+    --strict               Only design allele-specific guides where the variant makes or breaks a PAM site. 
+
 """
 
 import pandas as pd
@@ -344,6 +346,7 @@ def get_allele_spec_guides(args):
     #     logging.info('Gens and annots not matching up - debug.')
     #     exit(1)
 
+
     # if no variants annotated, no allele-specific guides possilbe
     if var_annots.empty:
         logging.info('No hetorozygous variants, thus no allele-specific guides for this locus.')
@@ -380,32 +383,35 @@ def get_allele_spec_guides(args):
         vars_destroy_pam = var_annots.query(f'breaks_{cas}')
 
         # design guides for variants near PAMs
-        for index, row in vars_near_pams.iterrows():
-            var = row['pos']
-            proximal_sites_for = list(range(row['pos'], row['pos']+guide_length+1))
-            nearby_for_pams = list(set(proximal_sites_for) & set(pam_for_pos))
-            for pam_site in nearby_for_pams:
+        if not args['--strict']:
+            for index, row in vars_near_pams.iterrows():
+                var = row['pos']
+                proximal_sites_for = list(range(row['pos'], row['pos']+guide_length+1))
+                nearby_for_pams = list(set(proximal_sites_for) & set(pam_for_pos))
+                for pam_site in nearby_for_pams:
 
-                grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, row['ref'], row['alt'], int(guide_length), pam_length, ref_genome, var_type='near_pam')
+                    grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, pam_site, var, row['ref'], row['alt'], guide_length, ref_genome, var_type='near_pam')
 
-                chrom = norm_chr(chrom, chrstart)
-                grna_dicts.append(dict(zip(['chrom','start','stop','ref','alt','variant_position_in_guide','gRNA_ref','gRNA_alt','variant_position',
-                    'strand','cas_type'],[str(chrom), (pam_site - guide_length - 1), (pam_site - 1), row['ref'], row['alt'],
-                    (pam_site - var - 1 + pam_length), grna_ref_seq, grna_alt_seq, var, '+', cas])))
+                    chrom = norm_chr(chrom, chrstart)
+                    grna_dicts.append(dict(zip(['chrom','start','stop','ref','alt','variant_position_in_guide','gRNA_ref','gRNA_alt','variant_position',
+                        'strand','cas_type'],[str(chrom), (pam_site - guide_length - 1), (pam_site - 1), row['ref'], row['alt'],
+                        (pam_site - var - 1 + pam_length), grna_ref_seq, grna_alt_seq, var, '+', cas])))
 
-            proximal_sites_rev = list(range(row['pos']-guide_length,row['pos']))
-            nearby_rev_pams = list(set(proximal_sites_rev) & set(pam_rev_pos))
-            for pam_site in nearby_rev_pams:
+                proximal_sites_rev = list(range(row['pos']-guide_length,row['pos']))
+                nearby_rev_pams = list(set(proximal_sites_rev) & set(pam_rev_pos))
+                for pam_site in nearby_rev_pams:
 
-                grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, int(pam_site), int(row['pos']), row['ref'], row['alt'], int(guide_length), pam_length, ref_genome, 
-                    strand='negative', var_type='near_pam')
-                if not args['-c']:
-                    grna_ref_seq, grna_alt_seq = make_rev_comp(grna_ref_seq), make_rev_comp(grna_alt_seq)
+                    grna_ref_seq, grna_alt_seq = get_alt_seq(chrom, int(pam_site), int(row['pos']), row['ref'], row['alt'], int(guide_length), ref_genome, 
+                        strand='negative', var_type='near_pam')
+                    if not args['-c']:
+                        grna_ref_seq, grna_alt_seq = make_rev_comp(grna_ref_seq), make_rev_comp(grna_alt_seq)
 
-                chrom = norm_chr(chrom, chrstart)
-                grna_dicts.append(dict(zip(['chrom','start','stop','ref','alt','variant_position_in_guide','gRNA_ref','gRNA_alt','variant_position',
-                    'strand','cas_type'], [str(chrom), pam_site, pam_site + guide_length, row['ref'], row['alt'],
-                    var - pam_site + pam_length - 1, grna_ref_seq, grna_alt_seq, var, '-', cas])))
+                    chrom = norm_chr(chrom, chrstart)
+                    grna_dicts.append(dict(zip(['chrom','start','stop','ref','alt','variant_position_in_guide','gRNA_ref','gRNA_alt','variant_position',
+                        'strand','cas_type'], [str(chrom), pam_site, pam_site + guide_length, row['ref'], row['alt'],
+                        var - pam_site + pam_length - 1, grna_ref_seq, grna_alt_seq, var, '-', cas])))
+            else:
+                continue
         # design guides for heterozygous variants that destroy PAMs 
         for index, row in vars_destroy_pam.iterrows():
             var = row['pos']
