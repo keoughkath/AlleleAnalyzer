@@ -14,7 +14,7 @@ SpCas9_VRER	NGCG	3'
 # SpCas9 EQR variant
 SpCas9_EQR	NGAG	3'
 # SpCas9 VQR variant 1
-SpCas9_VQR_1	NGA	3'
+SpCas9_VQR_1	NGAN	3'
 # SpCas9 VQR variant 2
 SpCas9_VQR_2	NGNG	3'
 # S. thermophilus Cas9
@@ -24,9 +24,9 @@ StCas9_2	NGGNG	3'
 # SaCas9
 SaCas9	NNGRRT	3'
 # SaCas9 KKH variant
-SaCas9_KKH 	NNNRRT	3'
+SaCas9_KKH 	NNNRT	3'
 # nmCas9
-nmCas9	NNNNGMT	3'
+nmCas9	NNNNGATT	3'
 # campylobacter jejuni Cas9
 cjCas9	NNNNACA	3'
 # Cpf1, PAM 5' of guides
