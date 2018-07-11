@@ -18,12 +18,15 @@ for cas in cas_list:
 	print(cas)
 	n_pams_dict[cas] = 0
 	for chrom in chrom_list:
+		print(chrom)
 		for_pams = np.load(f'{sys.argv[1]}chr{chrom}_{cas}_pam_sites_for.npy')
 		rev_pams = np.load(f'{sys.argv[1]}chr{chrom}_{cas}_pam_sites_rev.npy')
+		# print(rev_pams[0][2])
+		# print(len(rev_pams))
 		if cas == 'SpCas9_VQR_1' or cas == 'SpCas9_VQR_2':
 			n_pams_dict['SpCas9_VQR'] += len(for_pams) + len(rev_pams)
 		else:
-			n_pams_dict[cas] += len(for_pams) + len(rev_pams)
+			n_pams_dict[cas] += len(list(for_pams)) + len(list(rev_pams))
 
 np.save(f'{sys.argv[2]}n_pams_per_cas.npy',n_pams_dict)
 

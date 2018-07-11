@@ -1,4 +1,8 @@
 import pandas as pd
+import sys
+
+in_dir = sys.argv[1]
+out_dir = sys.argv[2]
 
 cas_list=['SpCas9','SpCas9_VRER','SpCas9_EQR','SpCas9_VQR_1','SpCas9_VQR_2','StCas9','StCas9_2','SaCas9','SaCas9_KKH','nmCas9','cjCas9','cpf1']
 
@@ -11,13 +15,17 @@ for cas in cas_list:
 	near_dict[cas] = 0
 	both_dict[cas] = 0
 
+in_dict['SpCas9_VQR'] = 0
+near_dict['SpCas9_VQR'] = 0
+both_dict['SpCas9_VQR'] = 0
+
 global total_vars
 total_vars = 0
 
 for chrom in list(range(1,23)):
 	chrom=str(chrom)
 	print(chrom)
-	annot_variants=pd.read_hdf(f'/pollard/home/kathleen/projects/genome_surgery/1kgp_hg19/hg19_targs/{chrom}_targ.hdf5','all').drop(columns=['chrom','pos','ref','alt'])
+	annot_variants=pd.read_hdf(f'{in_dir}/{chrom}_targ.hdf5','all').drop(columns=['chrom','pos','ref','alt'])
 	annot_variants['id'] = annot_variants.index
 	# get # of variants in chromosome annotated
 	n_vars = annot_variants.shape[0]
@@ -60,7 +68,7 @@ plot_df_out = in_df.merge(near_df,
 	right_index=True).divide(total_vars)
 
 # save to file
-plot_df_out.to_csv('figure_data/vars_near_in_df.tsv', sep='\t')
+plot_df_out.to_csv(f'{out_dir}/vars_near_in_df.tsv', sep='\t')
 
 
 
