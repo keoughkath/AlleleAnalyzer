@@ -11,12 +11,14 @@ import multiprocessing as mp
 import glob
 import sys
 
+global n_vars
 n_vars = {}
 
 def get_n_vars(chrom):
     df = pd.read_hdf(f'{sys.argv[1]}/{chrom}_targ.hdf5','all')
-    n_vars = df.shape[0]
-    n_vars[chrom] = n_vars
+    nvars = df.shape[0]
+    print(chrom, nvars)
+    n_vars[chrom] = nvars
 
 count = min(mp.cpu_count(),22) # only use as many CPUs as available
 pool = mp.Pool(processes=count)
@@ -25,6 +27,8 @@ chroms = list(range(1,23,1))
 pool.map(get_n_vars, chroms)
 pool.close()
 pool.join()
+
+print(n_vars)
 
 n_vars_df = pd.DataFrame.from_dict(n_vars, orient='index')
 n_vars_df.to_csv(f'{sys.argv[2]}_nvars.tsv', sep='\t')

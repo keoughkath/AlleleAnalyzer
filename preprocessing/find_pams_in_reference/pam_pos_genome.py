@@ -170,8 +170,8 @@ def main(args):
     for cas in cas_list:
         current_cas = cas_obj.get_cas_enzyme(cas, os.path.join(cas_obj_path,'CAS_LIST.txt'))
         for_starts, rev_starts = find_spec_pams(current_cas,str(genome[str(chrom)]), orient=current_cas.primeness)
-        savestr_for = f'{outprefix}'+str(chrom).replace('chr','')+'_'+str(cas) + '_pam_sites_for.npy'
-        savestr_rev = f'{outprefix}'+str(chrom).replace('chr','')+'_'+str(cas) + '_pam_sites_rev.npy'
+        savestr_for = f'{outprefix}'+str(chrom)+'_'+str(cas) + '_pam_sites_for.npy'
+        savestr_rev = f'{outprefix}'+str(chrom)+'_'+str(cas) + '_pam_sites_rev.npy'
         np.save(savestr_for,list(for_starts))
         np.save(savestr_rev,list(rev_starts))
 
