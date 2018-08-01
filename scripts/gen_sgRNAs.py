@@ -6,7 +6,8 @@ Written in Python v 3.6.1.
 Kathleen Keough et al 2018.
 
 Usage:
-    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--hom] [--bed] [--max_indel=<S>] [--ref_guides] [--strict]
+    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--hom] [--bed] [--max_indel=<S>][--strict]
+    gen_sgRNAs.py [-chvrd] <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--hom] [--bed] [--max_indel=<S>] --ref_guides [--strict]
     gen_sgRNAs.py -C | --cas-list
 
 Arguments:
