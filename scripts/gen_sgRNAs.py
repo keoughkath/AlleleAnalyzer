@@ -6,7 +6,8 @@ Written in Python v 3.6.1.
 Kathleen Keough et al 2018.
 
 Usage:
-    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--hom] [--bed] [--max_indel=<S>] [--ref_guides] [--strict]
+    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--hom] [--bed] [--max_indel=<S>] [--strict]
+    gen_sgRNAs.py [-chvrd] <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--hom] [--bed] [--max_indel=<S>] --ref_guides [--strict]
     gen_sgRNAs.py -C | --cas-list
 
 Arguments:
@@ -23,7 +24,7 @@ Options:
     -h --help              Show this screen and exit.
     -c                     Do not take the reverse complement of the guide sequence for '-' stranded guides (when the PAM is on the 5' end).
     -v                     Run in verbose mode (especially useful for debugging, but also for knowing status of script)
-    --hom                  Use 'homozygous' mode, personalized sgRNA design.
+    --hom                  Use 'homozygous' mode, personalized sgRNA design. Do not use if ref_guides is specified, they are redundant and non-compatible.
     --crispor=<ref_gen>    Add CRISPOR specificity scores to outputted guides. From Haeussler et al. Genome Biology 2016. 
                            Equals directory name of reference genome (complete).
     --bed                  Design sgRNAs for multiple regions specified in a BED file.
@@ -288,7 +289,7 @@ def filter_out_non_N_in_PAM(outdf, cas_ins):
 
 
 
-def get_allele_spec_guides(args):
+def get_allele_spec_guides(args, locus='ignore'):
     """ 
     Outputs dataframe with allele-specific guides.
     """
@@ -296,8 +297,11 @@ def get_allele_spec_guides(args):
     # load genotypes
     bcf = args['<bcf>']
 
-    # get locus info 
-    chrom, start, stop = parse_locus(args['<locus>'])
+    # parse locus
+    if locus == 'ignore':
+        chrom, start, stop = parse_locus(args['<locus>'])
+    else:
+        chrom, start, stop = parse_locus(locus)
 
     # get location of pams directory with stored locations of PAMs in reference genome
     pams_dir = args['<pams_dir>']
@@ -544,13 +548,16 @@ def parse_locus(locus):
     return chrom, start, stop
 
 
-def simple_guide_design(args):
+def simple_guide_design(args, locus='ignore'):
     """
     For the case when the individual has no variants in the locus, simply design guides based on reference sequence.
     """
     
     # parse locus
-    chrom, start, stop = parse_locus(args['<locus>'])
+    if locus == 'ignore':
+        chrom, start, stop = parse_locus(args['<locus>'])
+    else:
+        chrom, start, stop = parse_locus(locus)
 
     # get location of annotated PAMs in reference genome
     pams_dir = args['<pams_dir>']
@@ -594,7 +601,6 @@ def simple_guide_design(args):
         guides_out['gRNA_alt'] = 'C' * 20
         guides_out['cas_type'] = cas
         guides_out['chrom'] = chrom
-        guides_out['variant_position'] = np.nan
         return guides_out
 
 
@@ -611,17 +617,19 @@ def simple_grnas(row, ref_genome, guide_length, chrom):
     return ref_seq
 
 
-def get_guides(args):
+def get_guides(args, locus='ignore'):
     """
     Outputs dataframe with individual-specific (not allele-specific) guides.
     """
 
     # parse locus
-    chrom, start, stop = parse_locus(args['<locus>'])
+    if locus == 'ignore':
+        chrom, start, stop = parse_locus(args['<locus>'])
+    else:
+        chrom, start, stop = parse_locus(locus)
     
-    # load variant annotations
+    # load variant annotations 
     var_annots = pd.read_hdf(args['<annots_file>'], where='pos >= start and pos <= stop')
-
     # load genotypes
     bcf = args['<bcf>']
     # eliminates rows with missing genotypes
@@ -885,21 +893,8 @@ def get_guides(args):
 
 def multilocus_guides(args):
     # if the user initiated the analysis correctly, load the regions to be analyzed
-    regions = pd.read_csv(args['<locus>'], sep='\t', header=0,
+    regions = pd.read_csv(args['<locus>'], sep='\t', header=None,
         names=['chrom','start','stop','name'])
-
-    # figure out annotation of VCF/BCF chromosome (i.e. starts with 'chr' or not)
-    vcf_chrom = str(subprocess.Popen(f'bcftools view -H {args["<bcf>"]} | cut -f1 | head -1', shell=True, 
-        stdout=subprocess.PIPE).communicate()[0])
-
-    # See if chrom contains chr
-    if vcf_chrom.startswith('chr'):
-        chrstart = True
-    else:
-        chrstart = False
-
-    # correct the notation in the inputted file to match the VCF/BCF chromosome notation
-    regions['chrom'] = [ norm_chr(chrom, chrstart) for chrom in regions['chrom'].tolist() ]
 
     # set this up to catch sgRNA dataframe outputs
     out_list = []
@@ -907,6 +902,18 @@ def multilocus_guides(args):
     # initiates multi-locus personalized guide design
     if args['--hom']:
         logging.info('Finding personalized (non-allele-specific) guides.')
+        # figure out annotation of VCF/BCF chromosome (i.e. starts with 'chr' or not)
+        vcf_chrom = str(subprocess.Popen(f'bcftools view -H {args["<bcf>"]} | cut -f1 | head -1', shell=True, 
+            stdout=subprocess.PIPE).communicate()[0])
+
+        # See if chrom contains chr
+        if vcf_chrom.startswith('chr'):
+            chrstart = True
+        else:
+            chrstart = False
+
+        # correct the notation in the inputted file to match the VCF/BCF chromosome notation
+        regions['chrom'] = [ norm_chr(chrom, chrstart) for chrom in regions['chrom'].tolist() ]
         for index, row in regions.iterrows():
             chrom = row['chrom']
             start = row['start']
@@ -914,9 +921,31 @@ def multilocus_guides(args):
             guides_df = get_guides(args, f'{chrom}:{start}-{stop}')
             guides_df['locus'] = row['name']
             out_list.append(guides_df)
+    # initiates design of reference guides for multi-locus process
+    elif args['--ref_guides']:
+        logging.info('Finding reference guides.')
+        for index, row in regions.iterrows():
+            chrom = row['chrom']
+            start = row['start']
+            stop = row['stop']
+            guides_df = simple_guide_design(args, f'{chrom}:{start}-{stop}')
+            guides_df['locus'] = row['name']
+            out_list.append(guides_df)
     # initiates design of allele-specific guides for multi-locus process
     else:
         logging.info('Finding allele-specific guides.')
+        # figure out annotation of VCF/BCF chromosome (i.e. starts with 'chr' or not)
+        vcf_chrom = str(subprocess.Popen(f'bcftools view -H {args["<bcf>"]} | cut -f1 | head -1', shell=True, 
+            stdout=subprocess.PIPE).communicate()[0])
+
+        # See if chrom contains chr
+        if vcf_chrom.startswith('chr'):
+            chrstart = True
+        else:
+            chrstart = False
+
+        # correct the notation in the inputted file to match the VCF/BCF chromosome notation
+        regions['chrom'] = [ norm_chr(chrom, chrstart) for chrom in regions['chrom'].tolist() ]
         for index, row in regions.iterrows():
             chrom = row['chrom']
             start = row['start']
@@ -925,7 +954,8 @@ def multilocus_guides(args):
             guides_df['locus'] = row['name']
             out_list.append(guides_df)
     # assembles full output dataframe for all loci evaluated
-    out = pd.concat(list(filter(None,out_list)))
+    out = pd.concat(out_list)
+    # out = pd.concat(list(filter(None,out_list)))
 
     return out
 
@@ -954,7 +984,8 @@ def main(args):
             exit(1)
         else:
             out = multilocus_guides(args)
-            out = filter_out_N_in_PAM(out, CAS_LIST)
+            if not args['--ref_guides']:
+                out = filter_out_N_in_PAM(out, CAS_LIST)
 
     # initiates personalized guide design for single locus
     elif args['--hom']:

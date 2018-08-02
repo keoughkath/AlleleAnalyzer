@@ -24,7 +24,7 @@ StCas9_2	NGGNG	3'
 # SaCas9
 SaCas9	NNGRRT	3'
 # SaCas9 KKH variant
-SaCas9_KKH 	NNNRT	3'
+SaCas9_KKH	NNNRT	3'
 # nmCas9
 nmCas9	NNNNGATT	3'
 # campylobacter jejuni Cas9

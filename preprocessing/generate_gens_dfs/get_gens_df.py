@@ -105,7 +105,10 @@ def main(args):
 	check_bcftools()
 
 	# analyze regions specified in BED file
-	if args['--bed']:
+	if (args['<locus>'].endswith('.bed') and not args['--bed']) or (args['<locus>'].endswith('.BED') and not args['--bed']):
+		logging.error('Must specify --bed if inputting a BED file. Exiting.')
+		exit()
+	elif args['--bed']:
 		bed_file = args['<locus>']
 		logging.info(f'Analyzing BED file {bed_file}')
 		bed_df = pd.read_csv(bed_file, sep='\t', header=None, comment='#', names=['chr','start','stop','locus'])
@@ -143,12 +146,9 @@ def main(args):
 		# output  
 		raw_dat = pd.read_csv(StringIO(bcl_query.communicate()[0].decode("utf-8")), sep='\t', 
 			header=None, names=['chrom','pos','ref','alt'])
+		raw_dat.columns = ['chrom','pos','ref','alt']
 
 		os.remove(f'{out}_temp.bed')
-
-	elif args['<locus>'].endswith('.bed') or args['<locus>'].endswith('.BED'):
-		logging.error('Must specify --bed if inputting a BED file. Exiting.')
-		exit()
 	elif args['--chrom']:
 		logging.info('Running get_chr_tables.py on entire chromosome. This might take awhile.')
 		# get locus info
@@ -221,9 +221,11 @@ def main(args):
 
 	# save to HDF
 	out_fname=f'{out}.h5'
+
+	raw_dat.to_csv(f'{out}.csv')
 	raw_dat.to_hdf(out_fname,'all', data_columns=True)
 
-	add_metadata(out_fname, args, os.path.basename(__file__), __version__, "Gens")
+	add_metadata(out_fname, args, os.path.basename(__file__), __version__, 'Gens')
 
 	logging.info('Finished.')
 
