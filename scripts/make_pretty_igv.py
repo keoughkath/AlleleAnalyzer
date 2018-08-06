@@ -26,126 +26,172 @@ from Bio import SeqIO
 import cas_object
 from collections import Counter
 
-__version__ = '0.0.1'
+__version__ = "0.0.1"
 
 # get rid of annoying false positive Pandas error
 
 pd.options.mode.chained_assignment = None
-TRACK_COLS=["106,61,154",
-"166,206,227",
-"177,89,40",
-"178,223,138",
-"202,178,214",
-"227,26,28",
-"251,154,153",
-"253,191,111",
-"255,127,0",
-"255,255,153",
-"31,120,180",
-"51,160,44"]
+TRACK_COLS = [
+    "106,61,154",
+    "166,206,227",
+    "177,89,40",
+    "178,223,138",
+    "202,178,214",
+    "227,26,28",
+    "251,154,153",
+    "253,191,111",
+    "255,127,0",
+    "255,255,153",
+    "31,120,180",
+    "51,160,44",
+]
+
 
 def find_the_pams(seqio_object):
 
-	# this will be the ultimate output, a dictionary linking PAM names to their positions
+    # this will be the ultimate output, a dictionary linking PAM names to their positions
 
-	pam_positions = {}
+    pam_positions = {}
 
-	# get sequence of inputted seqIO object
+    # get sequence of inputted seqIO object
 
-	sequence = str(seqio_object.seq)
-	seqid = seqio_object.id
+    sequence = str(seqio_object.seq)
+    seqid = seqio_object.id
 
-	# set inputs to variables, string for sequence of region of interest
-	# ends up being region_seq. 
+    # set inputs to variables, string for sequence of region of interest
+    # ends up being region_seq.
 
-	chrom = seqid.split(':')[0]
-	low = int(seqid.split(':')[1].split('-')[0]) # low end of region of interest
-	high = int(seqid.split(':')[1].split('-')[1]) # high end of region of interest
+    chrom = seqid.split(":")[0]
+    low = int(seqid.split(":")[1].split("-")[0])  # low end of region of interest
+    high = int(seqid.split(":")[1].split("-")[1])  # high end of region of interest
 
-	# interior function to get PAM sites for each PAM motif
-	
-	def get_pam_starts(pam_regex,sequence):
-		starts = set()
-		for pam in regex.finditer(pam_regex, sequence,regex.IGNORECASE,overlapped=True):
-			starts.add(pam.end()+low+1) 
-		return(set(starts))
+    # interior function to get PAM sites for each PAM motif
 
-	for key,value in pam_dict.items():
-		pam_positions[key] = get_pam_starts(value,sequence)
+    def get_pam_starts(pam_regex, sequence):
+        starts = set()
+        for pam in regex.finditer(
+            pam_regex, sequence, regex.IGNORECASE, overlapped=True
+        ):
+            starts.add(pam.end() + low + 1)
+        return set(starts)
 
-	# return dictionary of PAMs and their positions in the sequence
+    for key, value in pam_dict.items():
+        pam_positions[key] = get_pam_starts(value, sequence)
 
-	return(pam_positions)
+        # return dictionary of PAMs and their positions in the sequence
 
-def find_spec_pams(cas,python_string,orient='3prime'):
-	# orient specifies whether this is a 3prime PAM (e.g. Cas9, PAM seq 3' of sgRNA)
-	# or a 5prime PAM (e.g. cpf1, PAM 5' of sgRNA)
+    return pam_positions
 
-	# get sequence 
 
-	sequence = python_string
+def find_spec_pams(cas, python_string, orient="3prime"):
+    # orient specifies whether this is a 3prime PAM (e.g. Cas9, PAM seq 3' of sgRNA)
+    # or a 5prime PAM (e.g. cpf1, PAM 5' of sgRNA)
 
-	# get PAM sites (the five prime three prime thing will need to be reversed for cpf1)
+    # get sequence
 
-	def get_pam_fiveprime(pam_regex,sequence):
-		starts = []
-		for pam in regex.finditer(pam_regex, sequence,regex.IGNORECASE,overlapped=True):
-			starts.append(pam.start()) 
-		return(starts)
+    sequence = python_string
 
-	def get_pam_threeprime(pam_regex,sequence):
-		starts = []
-		for pam in regex.finditer(pam_regex, sequence,regex.IGNORECASE,overlapped=True):
-			starts.append(pam.end()) 
-		return(starts)
+    # get PAM sites (the five prime three prime thing will need to be reversed for cpf1)
 
-	if orient == '3prime':
-		for_starts = get_pam_fiveprime(tpp_for[cas][0],sequence)
-		rev_starts = get_pam_threeprime(tpp_rev[cas+'_rev'][0],sequence)
-	elif orient == '5prime':
-		for_starts = get_pam_threeprime(fpp_for[cas][0],sequence)
-		rev_starts = get_pam_fiveprime(fpp_rev[cas+'_rev'][0],sequence)
+    def get_pam_fiveprime(pam_regex, sequence):
+        starts = []
+        for pam in regex.finditer(
+            pam_regex, sequence, regex.IGNORECASE, overlapped=True
+        ):
+            starts.append(pam.start())
+        return starts
 
-	return(for_starts,rev_starts)
+    def get_pam_threeprime(pam_regex, sequence):
+        starts = []
+        for pam in regex.finditer(
+            pam_regex, sequence, regex.IGNORECASE, overlapped=True
+        ):
+            starts.append(pam.end())
+        return starts
+
+    if orient == "3prime":
+        for_starts = get_pam_fiveprime(tpp_for[cas][0], sequence)
+        rev_starts = get_pam_threeprime(tpp_rev[cas + "_rev"][0], sequence)
+    elif orient == "5prime":
+        for_starts = get_pam_threeprime(fpp_for[cas][0], sequence)
+        rev_starts = get_pam_fiveprime(fpp_rev[cas + "_rev"][0], sequence)
+
+    return (for_starts, rev_starts)
+
 
 def adjusted_length(row):
-	"""
+    """
 	Adds on the length of the PAM to the sequnce length.
 	"""
-	cas = cas_object.get_cas_enzyme(row['cas_type'])
-	if row['strand'] == 'positive':
-		return (row['start'],row['stop']+len(cas.forwardPam))
-	else: 
-		return (row['start']-len(cas.forwardPam),row['stop'])
+    cas = cas_object.get_cas_enzyme(row["cas_type"])
+    if row["strand"] == "positive":
+        return (row["start"], row["stop"] + len(cas.forwardPam))
+    else:
+        return (row["start"] - len(cas.forwardPam), row["stop"])
+
 
 def main(args):
-	print(args)
-	gene_bed = pd.read_csv(args['<guides_file>'], sep='\t')
-	outfile = args['<igv_formatted_file_name>']
-	track_name = args['<track_name>']
-	cas_list = list(Counter(gene_bed['cas_type']).keys())
+    print(args)
+    gene_bed = pd.read_csv(args["<guides_file>"], sep="\t")
+    outfile = args["<igv_formatted_file_name>"]
+    track_name = args["<track_name>"]
+    cas_list = list(Counter(gene_bed["cas_type"]).keys())
 
-	gene_bed['full_start'], gene_bed['full_stop'] = zip(* gene_bed.apply(adjusted_length, axis=1))
-	if not args['--no_score']:
-		gene_bed['score'] = 1000*(1/(gene_bed['variant_position_in_guide'] + 1))
-	if 'rsID' in gene_bed.columns:
-		gene_bed['label'] = gene_bed.apply(lambda row: str(row['guide_id'])+\
-			'_'+str(row['variant_position_in_guide'])+'_'+str(row['rsID'])+'_AF'+str(row['AF']), axis=1)
-	elif args['--no_score']:
-		gene_bed['label'] = gene_bed['guide_id']
-		gene_bed['score'] = 100
-	else:
-		gene_bed['label'] = gene_bed.apply(lambda row: str(row['guide_id'])+\
-				'_'+str(row['variant_position_in_guide']), axis=1) 
+    gene_bed["full_start"], gene_bed["full_stop"] = zip(
+        *gene_bed.apply(adjusted_length, axis=1)
+    )
+    if not args["--no_score"]:
+        gene_bed["score"] = 1000 * (1 / (gene_bed["variant_position_in_guide"] + 1))
+    if "rsID" in gene_bed.columns:
+        gene_bed["label"] = gene_bed.apply(
+            lambda row: str(row["guide_id"])
+            + "_"
+            + str(row["variant_position_in_guide"])
+            + "_"
+            + str(row["rsID"])
+            + "_AF"
+            + str(row["AF"]),
+            axis=1,
+        )
+    elif args["--no_score"]:
+        gene_bed["label"] = gene_bed["guide_id"]
+        gene_bed["score"] = 100
+    else:
+        gene_bed["label"] = gene_bed.apply(
+            lambda row: str(row["guide_id"])
+            + "_"
+            + str(row["variant_position_in_guide"]),
+            axis=1,
+        )
 
-	gene_bed['color'] = gene_bed.apply(lambda row: TRACK_COLS[cas_list.index(row['cas_type'])%len(TRACK_COLS)] , axis=1)
-	gene_bed_display = gene_bed[['chrom','full_start','full_stop','label','score','strand','start','stop','color']]
+    gene_bed["color"] = gene_bed.apply(
+        lambda row: TRACK_COLS[cas_list.index(row["cas_type"]) % len(TRACK_COLS)],
+        axis=1,
+    )
+    gene_bed_display = gene_bed[
+        [
+            "chrom",
+            "full_start",
+            "full_stop",
+            "label",
+            "score",
+            "strand",
+            "start",
+            "stop",
+            "color",
+        ]
+    ]
 
-	header_str = f'track name={track_name} description=AS cut sites as produced by ExcisionFinder visibility=3 useScore=1'
+    header_str = f"track name={track_name} description=AS cut sites as produced by ExcisionFinder visibility=3 useScore=1"
 
-	gene_bed_display.to_csv(outfile+'.bed',sep='\t',index=False,
-						   header=[header_str,'','','','','','','',''])
+    gene_bed_display.to_csv(
+        outfile + ".bed",
+        sep="\t",
+        index=False,
+        header=[header_str, "", "", "", "", "", "", "", ""],
+    )
 
-if __name__ == '__main__':
-	arguments = docopt(__doc__, version=__version__)
-	main(arguments)
+
+if __name__ == "__main__":
+    arguments = docopt(__doc__, version=__version__)
+    main(arguments)
