@@ -50,4 +50,4 @@ p = ggraph(lout) +
         panel.grid.minor = element_blank(),
         axis.line = element_blank()) 
 
-ggsave(paste(out_prefix,'arcplot.pdf'),plot=p, width=7.5, height=2.5, dpi=300)
+ggsave(paste(out_prefix,'arcplot.pdf', sep=''),plot=p, width=7.5, height=2.5, dpi=300)

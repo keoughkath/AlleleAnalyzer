@@ -427,18 +427,7 @@ def get_allele_spec_guides(args, locus="ignore"):
     chrom = norm_chr(chrom, chrstart)
     # eliminates rows with missing genotypes and gets those where heterozygous
     bcl_v = f"bcftools view -g ^miss -g het -r {chrom}:{start}-{stop} -H {bcf}"
-    col_names = [
-        "chrom",
-        "pos",
-        "rsid",
-        "ref",
-        "alt",
-        "score",
-        "random",
-        "info",
-        "gt",
-        "genotype",
-    ]
+    col_names = ["chrom","pos","rsid","ref","alt","score","random","info","gt","genotype"]
     bcl_view = subprocess.Popen(bcl_v, shell=True, stdout=subprocess.PIPE)
     bcl_view.wait()
 
@@ -446,9 +435,15 @@ def get_allele_spec_guides(args, locus="ignore"):
         StringIO(bcl_view.communicate()[0].decode("utf-8")),
         sep="\t",
         header=None,
-        names=col_names,
-        usecols=["chrom", "pos", "ref", "alt", "genotype"],
+        # names=col_names,
+        # usecols=["chrom", "pos", "ref", "alt", "genotype"],
     )
+    n_cols = len(gens.columns)
+    col_names = col_names + (['blah'] * (n_cols - len(col_names)))
+    gens.columns = col_names
+    # gens.head().to_csv('~/projects/genome_surgery/test.tsv', sep='\t')
+    # print(gens.head())
+    # exit()
 
     # load variant annotations
     var_annots = pd.read_hdf(args["<annots_file>"])
@@ -1122,6 +1117,11 @@ def get_guides(args, locus="ignore"):
 			"gRNAs","variant_position","strand",
 			"cas_type"]]
         # print('simple, line 1112')
+        # add specificity scores if specified
+        if args["--crispor"]:
+            out['gRNA_alt'] = out['gRNAs']
+            out['gRNA_ref'] = out['gRNAs']
+            out = get_crispor_scores(out, args["<out>"], args["--crispor"])
         return out
 
     # determine which variants are het and which aren't
@@ -1466,6 +1466,8 @@ def get_guides(args, locus="ignore"):
 
     # add specificity scores if specified
     if args["--crispor"]:
+        out['gRNA_alt'] = out['gRNAs']
+        out['gRNA_ref'] = out['gRNAs']
         out = get_crispor_scores(out, args["<out>"], args["--crispor"])
 
     # get rsID and AF info if provided
@@ -1478,8 +1480,8 @@ def get_guides(args, locus="ignore"):
             gene_vars, how="left", on=["chrom", "variant_position", "ref", "alt"]
         )
 
-    # out["gRNAs"] = out["gRNA_ref"]
-    # out.drop(columns=["gRNA_ref", "gRNA_alt"], inplace=True)
+    # out = out["chrom", "start", "stop", "ref", "alt",
+    #     "variant_position_in_guide", "gRNAs", "variant_position", "strand", "cas_type"]
     return out
 
 
@@ -1528,9 +1530,13 @@ def multilocus_guides(args):
             chrom = row["chrom"]
             start = row["start"]
             stop = row["stop"]
-            guides_df = simple_guide_design(args, f"{chrom}:{start}-{stop}")
-            guides_df["locus"] = row["name"]
-            out_list.append(guides_df)
+            out = simple_guide_design(args, f"{chrom}:{start}-{stop}")
+            out["locus"] = row["name"]
+            if args["--crispor"]:
+                # out['gRNA_alt'] = out['gRNAs']
+                # out['gRNA_ref'] = out['gRNAs']
+                out = get_crispor_scores(out, args["<out>"], args["--crispor"])
+            out_list.append(out)
     # initiates design of allele-specific guides for multi-locus process
     else:
         logging.info("Finding allele-specific guides.")

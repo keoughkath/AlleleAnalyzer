@@ -10,7 +10,7 @@ Usage:
 
 Arguments:
     <mp>                    if type = max_probes, this is the maximum number of sgRNA pairs to consider,
-    <infile>                this is the dataframe for the gene or locus being analyzed by gen_arcplot_df.py
+    <infile>                this is the dataframe for the gene or locus being analyzed by ExcisionFinder.py in --exhaustive mode.
     <outprefix>             where to save the outputted files, which include one file for the individuals covered
                             and one file for the sgRNA pairs used
 Options:
@@ -26,28 +26,42 @@ import os
 from docopt import docopt
 
 
-def optimize_probes(probes_to_people,
-                    num_people=None,
-                    min_prop_covered=None,
-                    max_probes=None,
-                    ):
+def optimize_probes(
+    probes_to_people, num_people=None, min_prop_covered=None, max_probes=None
+):
 
     if min_prop_covered is None and max_probes is not None:
         problem_type = "maximize coverage"
     elif max_probes is None and min_prop_covered is not None and num_people is not None:
         problem_type = "minimize probes"
     else:
-        raise ValueError("Must provide either (1) minimum fraction of coverage and total population size or "
-                         "(2) maximum number of probes")
+        raise ValueError(
+            "Must provide either (1) minimum fraction of coverage and total population size or "
+            "(2) maximum number of probes"
+        )
 
     if problem_type == "minimize probes":
-        prob = LpProblem("Solving for minimal number of probes needed to cover {}% of people".format(
-            str(100*min_prop_covered)), LpMinimize)
+        prob = LpProblem(
+            "Solving for minimal number of probes needed to cover {}% of people".format(
+                str(100 * min_prop_covered)
+            ),
+            LpMinimize,
+        )
     elif problem_type == "maximize coverage":
-        prob = LpProblem("Solving for maximal cover with " + str(max_probes) + " max allowed",LpMaximize)
-    probes = LpVariable.dicts("g_", [pair for pair in probes_to_people.groupby(["var1","var2"]).groups.keys()],
-                                           0, 1, LpInteger)
-    people = LpVariable.dicts("s_", probes_to_people["ind"].unique().tolist(),0, 1, LpInteger)
+        prob = LpProblem(
+            "Solving for maximal cover with " + str(max_probes) + " max allowed",
+            LpMaximize,
+        )
+    probes = LpVariable.dicts(
+        "g_",
+        [pair for pair in probes_to_people.groupby(["var1", "var2"]).groups.keys()],
+        0,
+        1,
+        LpInteger,
+    )
+    people = LpVariable.dicts(
+        "s_", probes_to_people["ind"].unique().tolist(), 0, 1, LpInteger
+    )
     # Add objective
     # A) minimize number of probes used
     if problem_type == "minimize probes":
@@ -62,7 +76,7 @@ def optimize_probes(probes_to_people,
     # A) must cover at least x% of people
     if problem_type == "minimize probes":
         total_people = sum(people.values())
-        prob += total_people >= (min_prop_covered*num_people)
+        prob += total_people >= (min_prop_covered * num_people)
     # B) must use at most x probes
     elif problem_type == "maximize coverage":
         total_probes = sum(probes.values())
@@ -70,8 +84,16 @@ def optimize_probes(probes_to_people,
 
     # Add constraints arising from the probes to people mapping
     for (person, person_subdf) in probes_to_people.groupby("ind"):
-        prob += sum(probes[pair] for pair in person_subdf[["var1","var2"]].itertuples(index=False, name=None)) -\
-                people[person] >= 0
+        prob += (
+            sum(
+                probes[pair]
+                for pair in person_subdf[["var1", "var2"]].itertuples(
+                    index=False, name=None
+                )
+            )
+            - people[person]
+            >= 0
+        )
 
     if GUROBI().available():
         status = prob.solve(GUROBI())
@@ -80,11 +102,11 @@ def optimize_probes(probes_to_people,
     else:
         status = prob.solve()
 
-    return({
-        'probe usage status': {probe:probes[probe].value() for probe in probes},
-        'person covered status': {person:people[person].value() for person in people},
-        'solution status': status 
-        })
+    return {
+        "probe usage status": {probe: probes[probe].value() for probe in probes},
+        "person covered status": {person: people[person].value() for person in people},
+        "solution status": status,
+    }
 
 
 def get_people(solution):
@@ -93,7 +115,11 @@ def get_people(solution):
     :param solution: outdict from optimize_probes
     :return: The individuals covered by the solution.
     """
-    people_covered = [person for (person,status) in solution['person covered status'].items() if status>0]
+    people_covered = [
+        person
+        for (person, status) in solution["person covered status"].items()
+        if status > 0
+    ]
     return people_covered
 
 
@@ -104,56 +130,96 @@ def get_pairs(solution):
     :return: The pairs used.
     """
     pairs_used = pd.DataFrame.from_records(
-        [pair for (pair, status) in solution['probe usage status'].items() if status > 0],
-        columns = ["var1","var2"]
+        [
+            pair
+            for (pair, status) in solution["probe usage status"].items()
+            if status > 0
+        ],
+        columns=["var1", "var2"],
     )
     return pairs_used
 
+
 def main(args):
-    run_type = args['--type']
-    mp = args['<mp>']
-    indf = pd.read_csv(args['<infile>'], sep='\t')
-    outprefix = args['<outprefix>']
-    if run_type == 'max_probes':
+    run_type = args["--type"]
+    mp = args["<mp>"]
+    indf = pd.read_csv(args["<infile>"], sep="\t")
+    outprefix = args["<outprefix>"]
+    if run_type == "max_probes":
         outdict = optimize_probes(indf, max_probes=int(mp))
-    elif run_type == 'min_prop':
-        outdict = optimize_probes(indf, min_prop_covered=float(mp), num_people=int(args["--total_pop_size"]))
+    elif run_type == "min_prop":
+        outdict = optimize_probes(
+            indf, min_prop_covered=float(mp), num_people=int(args["--total_pop_size"])
+        )
     else:
-        print('run_type must be either max_probes or min_prop.')
+        print("run_type must be either max_probes or min_prop.")
         exit()
     ppl_covered = get_people(outdict)
     pairs_used = get_pairs(outdict)
-    with open(outprefix + '_ppl_covered.txt', 'w') as f:
+    with open(outprefix + "_ppl_covered.txt", "w") as f:
         for person in ppl_covered:
-            f.write(person + '\n')
-    if args['--guides']:
-        guides_df = pd.read_csv(args['--guides'], sep='\t')
+            f.write(person + "\n")
+    if args["--guides"]:
+        guides_df = pd.read_csv(args["--guides"], sep="\t")
         guide_pairs_out = pd.DataFrame()
-        guide_pairs_out['variant1'] = pairs_used['var1']
-        guide_pairs_out['variant2'] = pairs_used['var2']
-        guide_pairs_out['variant_position'] = guide_pairs_out['variant1']
-        guide_pairs_out = guide_pairs_out.merge(guides_df, how='left', on=['variant_position'])
-        guide_pairs_out['gRNA_ref_guide_1'] = guide_pairs_out['gRNA_ref']
-        guide_pairs_out['gRNA_alt_guide_1'] = guide_pairs_out['gRNA_alt']
-        guide_pairs_out['ref_g1'] = guide_pairs_out['ref']
-        guide_pairs_out['alt_g1'] = guide_pairs_out['alt']
-        guide_pairs_out['variant_position_in_guide_g1'] = guide_pairs_out['variant_position_in_guide']
-        guide_pairs_out = guide_pairs_out[['variant1','variant2','gRNA_ref_guide_1','gRNA_alt_guide_1',
-        'ref_g1','alt_g1','variant_position_in_guide_g1']]
-        guide_pairs_out['variant_position'] = guide_pairs_out['variant2']
-        guide_pairs_out = guide_pairs_out.merge(guides_df, how='left', on=['variant_position'])
-        guide_pairs_out['gRNA_ref_guide_2'] = guide_pairs_out['gRNA_ref']
-        guide_pairs_out['gRNA_alt_guide_2'] = guide_pairs_out['gRNA_alt']
-        guide_pairs_out['ref_g2'] = guide_pairs_out['ref']
-        guide_pairs_out['alt_g2'] = guide_pairs_out['alt']
-        guide_pairs_out['variant_position_in_guide_g2'] = guide_pairs_out['variant_position_in_guide']
-        guides_out = guide_pairs_out[['variant1','variant2','gRNA_ref_guide_1','gRNA_alt_guide_1',
-        'ref_g1','alt_g1','variant_position_in_guide_g1','gRNA_ref_guide_2','gRNA_alt_guide_2',
-        'ref_g2','alt_g2','variant_position_in_guide_g2']].drop_duplicates()
-        guides_out.to_csv(f'{outprefix}_optimized_pair_guides.tsv', sep='\t', index=False)
-    pairs_used.to_csv(outprefix + '_pairs_used.txt', sep='\t', index=False)
+        guide_pairs_out["variant1"] = pairs_used["var1"]
+        guide_pairs_out["variant2"] = pairs_used["var2"]
+        guide_pairs_out["variant_position"] = guide_pairs_out["variant1"]
+        guide_pairs_out = guide_pairs_out.merge(
+            guides_df, how="left", on=["variant_position"]
+        )
+        guide_pairs_out["gRNA_ref_guide_1"] = guide_pairs_out["gRNA_ref"]
+        guide_pairs_out["gRNA_alt_guide_1"] = guide_pairs_out["gRNA_alt"]
+        guide_pairs_out["ref_g1"] = guide_pairs_out["ref"]
+        guide_pairs_out["alt_g1"] = guide_pairs_out["alt"]
+        guide_pairs_out["variant_position_in_guide_g1"] = guide_pairs_out[
+            "variant_position_in_guide"
+        ]
+        guide_pairs_out = guide_pairs_out[
+            [
+                "variant1",
+                "variant2",
+                "gRNA_ref_guide_1",
+                "gRNA_alt_guide_1",
+                "ref_g1",
+                "alt_g1",
+                "variant_position_in_guide_g1",
+            ]
+        ]
+        guide_pairs_out["variant_position"] = guide_pairs_out["variant2"]
+        guide_pairs_out = guide_pairs_out.merge(
+            guides_df, how="left", on=["variant_position"]
+        )
+        guide_pairs_out["gRNA_ref_guide_2"] = guide_pairs_out["gRNA_ref"]
+        guide_pairs_out["gRNA_alt_guide_2"] = guide_pairs_out["gRNA_alt"]
+        guide_pairs_out["ref_g2"] = guide_pairs_out["ref"]
+        guide_pairs_out["alt_g2"] = guide_pairs_out["alt"]
+        guide_pairs_out["variant_position_in_guide_g2"] = guide_pairs_out[
+            "variant_position_in_guide"
+        ]
+        guides_out = guide_pairs_out[
+            [
+                "variant1",
+                "variant2",
+                "gRNA_ref_guide_1",
+                "gRNA_alt_guide_1",
+                "ref_g1",
+                "alt_g1",
+                "variant_position_in_guide_g1",
+                "gRNA_ref_guide_2",
+                "gRNA_alt_guide_2",
+                "ref_g2",
+                "alt_g2",
+                "variant_position_in_guide_g2",
+            ]
+        ].drop_duplicates()
+        guides_out.to_csv(
+            f"{outprefix}_optimized_pair_guides.tsv", sep="\t", index=False
+        )
+    pairs_used.to_csv(outprefix + "_pairs_used.txt", sep="\t", index=False)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     arguments = docopt(__doc__)
     print(arguments)
     main(arguments)
