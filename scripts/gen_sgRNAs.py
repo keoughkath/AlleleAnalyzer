@@ -409,14 +409,12 @@ def get_allele_spec_guides(args, locus="ignore"):
 
     # figure out annotation of VCF/BCF chromosome (i.e. starts with 'chr' or not)
     vcf_chrom = str(
-        subprocess.Popen(
-            f'bcftools view -H {args["<bcf>"]} | cut -f1 | head -1',
-            shell=True,
-            stdout=subprocess.PIPE,
+            subprocess.Popen(
+                f'bcftools view -H {args["<bcf>"]} | cut -f1 | head -1',
+                shell=True,
+                stdout=subprocess.PIPE,
+            ).communicate()[0].decode('utf-8')
         )
-        .communicate()[0]
-        .decode("utf-8")
-    )
 
     # See if chrom contains chr
     if vcf_chrom.startswith("chr"):
@@ -431,22 +429,38 @@ def get_allele_spec_guides(args, locus="ignore"):
     bcl_view = subprocess.Popen(bcl_v, shell=True, stdout=subprocess.PIPE)
     bcl_view.wait()
 
-    gens = pd.read_csv(
+    # print(StringIO(bcl_view.communicate()[0].decode("utf-8")))
+
+    try:
+        gens = pd.read_csv(
         StringIO(bcl_view.communicate()[0].decode("utf-8")),
         sep="\t",
-        header=None,
-        # names=col_names,
-        # usecols=["chrom", "pos", "ref", "alt", "genotype"],
-    )
+        header=None)
+    except pd.io.common.EmptyDataError:
+        gens = pd.DataFrame()
+
+    # load variant annotations
+    var_annots = pd.read_hdf(args["<annots_file>"]).query('(chrom == @chrom) and (pos >= @start) and (pos <= @stop)')
+    # print(var_annots.head())
+
+    # if gens is empty, annots should be too, double check this
+    if gens.empty and not var_annots.empty:
+        logging.info(
+            "Check that you used the same coordinates for generating the annots file \
+            as are being used here."
+        )
+        exit(1)
+
+    # if no variants annotated, no allele-specific guides possilbe
+    if gens.empty:
+        logging.info(
+            "No hetorozygous variants, thus no allele-specific guides for this locus."
+        )
+        return None
+
     n_cols = len(gens.columns)
     col_names = col_names + (['blah'] * (n_cols - len(col_names)))
     gens.columns = col_names
-    # gens.head().to_csv('~/projects/genome_surgery/test.tsv', sep='\t')
-    # print(gens.head())
-    # exit()
-
-    # load variant annotations
-    var_annots = pd.read_hdf(args["<annots_file>"])
 
     # remove big indels
     gens, var_annots = verify_hdf_files(
@@ -1546,14 +1560,11 @@ def multilocus_guides(args):
                 f'bcftools view -H {args["<bcf>"]} | cut -f1 | head -1',
                 shell=True,
                 stdout=subprocess.PIPE,
-            ).communicate().decode('utf-8').strip()[0]
+            ).communicate()[0].decode('utf-8').strip()
         )
 
         # See if chrom contains chr
-        if vcf_chrom.startswith("chr"):
-            chrstart = True
-        else:
-            chrstart = False
+        chrstart = vcf_chrom.startswith("chr")
 
         # correct the notation in the inputted file to match the VCF/BCF chromosome notation
         regions["chrom"] = [
@@ -1564,10 +1575,13 @@ def multilocus_guides(args):
             start = row["start"]
             stop = row["stop"]
             guides_df = get_allele_spec_guides(
-                args, spec_locus=f"{chrom}:{start}-{stop}"
+                args, locus=f"{chrom}:{start}-{stop}"
             )
-            guides_df["locus"] = row["name"]
-            out_list.append(guides_df)
+            if guides_df is not None:
+                guides_df["locus"] = row["name"]
+                out_list.append(guides_df)
+            else:
+                continue
     # assembles full output dataframe for all loci evaluated
     out = pd.concat(out_list)
     # out = pd.concat(list(filter(None,out_list)))
