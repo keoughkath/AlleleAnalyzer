@@ -25,6 +25,7 @@ import re
 from Bio import SeqIO
 import cas_object
 from collections import Counter
+import numpy as np
 
 __version__ = "0.0.1"
 
@@ -45,78 +46,6 @@ TRACK_COLS = [
     "31,120,180",
     "51,160,44",
 ]
-
-
-def find_the_pams(seqio_object):
-
-    # this will be the ultimate output, a dictionary linking PAM names to their positions
-
-    pam_positions = {}
-
-    # get sequence of inputted seqIO object
-
-    sequence = str(seqio_object.seq)
-    seqid = seqio_object.id
-
-    # set inputs to variables, string for sequence of region of interest
-    # ends up being region_seq.
-
-    chrom = seqid.split(":")[0]
-    low = int(seqid.split(":")[1].split("-")[0])  # low end of region of interest
-    high = int(seqid.split(":")[1].split("-")[1])  # high end of region of interest
-
-    # interior function to get PAM sites for each PAM motif
-
-    def get_pam_starts(pam_regex, sequence):
-        starts = set()
-        for pam in regex.finditer(
-            pam_regex, sequence, regex.IGNORECASE, overlapped=True
-        ):
-            starts.add(pam.end() + low + 1)
-        return set(starts)
-
-    for key, value in pam_dict.items():
-        pam_positions[key] = get_pam_starts(value, sequence)
-
-        # return dictionary of PAMs and their positions in the sequence
-
-    return pam_positions
-
-
-def find_spec_pams(cas, python_string, orient="3prime"):
-    # orient specifies whether this is a 3prime PAM (e.g. Cas9, PAM seq 3' of sgRNA)
-    # or a 5prime PAM (e.g. cpf1, PAM 5' of sgRNA)
-
-    # get sequence
-
-    sequence = python_string
-
-    # get PAM sites (the five prime three prime thing will need to be reversed for cpf1)
-
-    def get_pam_fiveprime(pam_regex, sequence):
-        starts = []
-        for pam in regex.finditer(
-            pam_regex, sequence, regex.IGNORECASE, overlapped=True
-        ):
-            starts.append(pam.start())
-        return starts
-
-    def get_pam_threeprime(pam_regex, sequence):
-        starts = []
-        for pam in regex.finditer(
-            pam_regex, sequence, regex.IGNORECASE, overlapped=True
-        ):
-            starts.append(pam.end())
-        return starts
-
-    if orient == "3prime":
-        for_starts = get_pam_fiveprime(tpp_for[cas][0], sequence)
-        rev_starts = get_pam_threeprime(tpp_rev[cas + "_rev"][0], sequence)
-    elif orient == "5prime":
-        for_starts = get_pam_threeprime(fpp_for[cas][0], sequence)
-        rev_starts = get_pam_fiveprime(fpp_rev[cas + "_rev"][0], sequence)
-
-    return (for_starts, rev_starts)
 
 
 def adjusted_length(row):
@@ -141,7 +70,7 @@ def main(args):
         *gene_bed.apply(adjusted_length, axis=1)
     )
     if not args["--no_score"]:
-        gene_bed["score"] = 1000 * (1 / (gene_bed["variant_position_in_guide"] + 1))
+        gene_bed["score"] = 1000 * (1 / (gene_bed["variant_position_in_guide"].replace(np.nan, 0) + 1))
     if "rsID" in gene_bed.columns:
         gene_bed["label"] = gene_bed.apply(
             lambda row: str(row["guide_id"])

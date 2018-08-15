@@ -1062,19 +1062,6 @@ def get_guides(args, locus="ignore"):
     else:
         chrom, start, stop = parse_locus(locus)
 
-    # vcf_chrom = str(
-    #     subprocess.Popen(
-    #         f'bcftools view -H {args["<bcf>"]} | cut -f1 | head -1',
-    #         shell=True,
-    #         stdout=subprocess.PIPE,
-    #     ).communicate()[0].decode('utf-8').strip()
-    # )
-
-    # # See if chrom contains chr
-    # chrstart = str(vcf_chrom).startswith("chr")
-
-    # chrom = norm_chr(chrom, chrstart)
-
     # load variant annotations
     var_annots = pd.read_hdf(
         args["<annots_file>"], where="chrom == chrom and pos >= start and pos <= stop"
@@ -1261,7 +1248,7 @@ def get_guides(args, locus="ignore"):
                     refs.append(ref_allele)
                     alts.append(alt_allele)
                     grnas.append(grna_alt_seq.upper())
-                    variant_pos_in_guides.append(pam_site - var - 1 + pam_length)
+                    variant_pos_in_guides.append(pam_site - var - 2 + pam_length)
                     strands.append("positive")
                     pam_pos.append(pos)
                     chroms.append(chrom)
@@ -1487,15 +1474,14 @@ def get_guides(args, locus="ignore"):
     # get rsID and AF info if provided
     if args["<gene_vars>"]:
         gene_vars = pd.read_hdf(args["<gene_vars>"])
-        if not str(gene_vars["chrom"].tolist()[0]).startswith("chr"):
-            gene_vars["chrom"] = list(map(lambda x: "chr" + str(x), gene_vars["chrom"]))
+        gene_vars['chrom'] = gene_vars['chrom'].apply(norm_chr, args=(chrom.startswith('chr'),))
         gene_vars["variant_position"] = gene_vars["pos"]
         out = out.merge(
             gene_vars, how="left", on=["chrom", "variant_position", "ref", "alt"]
         )
 
-    # out = out["chrom", "start", "stop", "ref", "alt",
-    #     "variant_position_in_guide", "gRNAs", "variant_position", "strand", "cas_type"]
+    out = out.drop_duplicates()
+    
     return out
 
 
