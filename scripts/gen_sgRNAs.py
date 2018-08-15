@@ -1371,7 +1371,8 @@ def get_guides(args, locus="ignore"):
                 refs.append(ref_allele)
                 alts.append(alt_allele)
                 grnas.append(grna_alt_seq.upper())
-                var_pos = var - pam_site + pam_length
+                var_pos = var - pam_site + pam_length - 1.0
+                print(var_pos)
                 variant_pos_in_guides.append(var_pos)
                 cas_types.append(cas)
                 chroms.append(chrom)
@@ -1608,7 +1609,7 @@ def main(args):
     elif args["--hom"]:
         logging.info("Finding non-allele-specific guides.")
         out = get_guides(args)
-        out = filter_out_non_N_in_PAM(out, CAS_LIST)
+        out = filter_out_N_in_PAM(out, CAS_LIST)
     # initiates allele-specific, personalized guide design for single locus
     else:
         logging.info("Finding allele-specific guides.")
