@@ -97,6 +97,7 @@ def main(args):
         lambda row: TRACK_COLS[cas_list.index(row["cas_type"]) % len(TRACK_COLS)],
         axis=1,
     )
+    gene_bed['chrom'] = gene_bed['chrom'].astype(str).str.split('.').str[0]
     gene_bed_display = gene_bed[
         [
             "chrom",

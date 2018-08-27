@@ -12,7 +12,7 @@ Usage:
 Arguments:
     gene_dat                         Gene annotations file (gene_gene_dat_wsize) filepath.
     gene                             Gene you would like to analyze.
-    var_annots                       Directory where the variant annotation HDF5 files are stored.
+    var_annots                       Variant annotation HDF5 file.
     maxcut                           Maximum distance between cut position pairs.
     cas_list                         Comma separated (no spaces!) list of Cas varieties to evaluate, options below.
     bcf                              BCF/VCF file with variants for individual or cohort being analyzed. 

@@ -31,7 +31,7 @@ def filt_pops(df, sample_legend, pop='all'):
 def main(args):
 	df = pd.read_csv(args['<input_df>'], sep='\t')
 	if args['--sample_legend']:
-		sample_legend = pd.read_csv(args['<sample_legend>'], sep='\t', header=0,
+		sample_legend = pd.read_csv(args['--sample_legend'], sep='\t', header=0,
 		                           names=['superpop','pop','sex'])
 		sample_legend['ind'] = sample_legend.index
 
