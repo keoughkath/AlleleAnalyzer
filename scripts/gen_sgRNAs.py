@@ -151,14 +151,13 @@ def get_alt_seq(
             # alt sgRNA
             alt_seq = (
                 ref_genome["chr" + str(chrom)][
-                    pam_start - guide_length - 1 : var_pos - 1
+                    pam_start - guide_length - len(alt) : var_pos - 1
                 ].lower()
                 + alt.upper()
                 + ref_genome["chr" + str(chrom)][
-                    var_pos + len(alt) - 1 : pam_start - 1
+                    var_pos: pam_start - 1
                 ].lower()
             )
-
         elif var_type == "destroys_pam":
 
             # reference sgRNA
@@ -174,10 +173,10 @@ def get_alt_seq(
             # reference sgRNA
             ref_seq = "G" * guide_length
 
-            # in this case, variant is destroying a PAM, rendering the alternate allele no longer a CRISPR site
-            # therefore, for lack of a better solution, return empty alt_seq
+            # in this case, variant is destroying a PAM, rendering the reference allele no longer a CRISPR site
+            # therefore, for lack of a better solution, return empty ref_seq
             alt_seq = ref_genome["chr" + str(chrom)][
-                pam_start - guide_length - 1 : pam_start - 1
+                pam_start - guide_length  : pam_start 
             ]
         return ref_seq.upper(), alt_seq.upper()
 
@@ -190,13 +189,12 @@ def get_alt_seq(
             ]
             # alt sgRNA
             alt_seq = (
-                ref_genome["chr" + str(chrom)][pam_start : var_pos - 1]
-                + alt
+                ref_genome["chr" + str(chrom)][pam_start : var_pos - 1].lower()
+                + alt.upper()
                 + ref_genome["chr" + str(chrom)][
-                    var_pos + len(alt) - 1 : pam_start + guide_length
-                ]
+                    var_pos : pam_start + guide_length - len(alt) + 1
+                ].lower()
             )
-
         elif var_type == "destroys_pam":
 
             # reference sgRNA
@@ -317,11 +315,11 @@ def verify_hdf_files(gen_file, annots_file, chrom, start, stop, max_indel):
     """
     start, stop = int(start), int(stop)
     comp = ["chrom", "pos", "ref", "alt"]
-    if not set(gen_file['pos'].tolist()) == set(annots_file['pos'].tolist()) and not (gen_file.empty and annots_file.empty):
-        print(gen_file[comp].reset_index(drop=True))
-        print(annots_file[comp].reset_index(drop=True))
-        logging.error("ERROR: gen file and targ file variants do not match.")
-        exit(1)
+    # if not set(gen_file['pos'].tolist()) == set(annots_file['pos'].tolist()) and not (gen_file.empty and annots_file.empty):
+    #     print(gen_file[comp].reset_index(drop=True))
+    #     print(annots_file[comp].reset_index(drop=True))
+    #     logging.error("ERROR: gen file and targ file variants do not match.")
+    #     exit(1)
     # # Check chr
     # if not len(Counter(gen_file["chrom"]).keys()) == 1:
     #     logging.error("ERROR: variants map to different chromosomes")  # Should exit?
@@ -1248,7 +1246,7 @@ def get_guides(args, locus="ignore"):
                     refs.append(ref_allele)
                     alts.append(alt_allele)
                     grnas.append(grna_alt_seq.upper())
-                    variant_pos_in_guides.append(pam_site - var - 2 + pam_length)
+                    variant_pos_in_guides.append(pam_site - var - 1 + pam_length)
                     strands.append("positive")
                     pam_pos.append(pos)
                     chroms.append(chrom)
@@ -1333,8 +1331,8 @@ def get_guides(args, locus="ignore"):
                     ref_genome,
                     var_type="makes_pam",
                 )
-                starts.append(pam_site - guide_length)
-                stops.append(pam_site)
+                starts.append(pam_site - guide_length + 1)
+                stops.append(pam_site + 1)
                 refs.append(ref_allele)
                 alts.append(alt_allele)
                 grnas.append(grna_alt_seq.upper())
@@ -1364,15 +1362,14 @@ def get_guides(args, locus="ignore"):
                         make_rev_comp(grna_ref_seq),
                         make_rev_comp(grna_alt_seq),
                     )
-                start = pam_site
+                start = pam_site + 1
                 starts.append(start)
-                stop = pam_site + guide_length
+                stop = pam_site + guide_length + 1
                 stops.append(stop)
                 refs.append(ref_allele)
                 alts.append(alt_allele)
                 grnas.append(grna_alt_seq.upper())
                 var_pos = var - pam_site + pam_length - 1.0
-                print(var_pos)
                 variant_pos_in_guides.append(var_pos)
                 cas_types.append(cas)
                 chroms.append(chrom)
@@ -1417,10 +1414,10 @@ def get_guides(args, locus="ignore"):
                         guide_length,
                         ref_genome,
                         var_type="near_pam",
-                        strand="negative",
+                        strand="negative"
                     )
-                    starts.append(pam_site)
-                    stops.append(pam_site + guide_length)
+                    starts.append(pam_site + 1)
+                    stops.append(pam_site + guide_length + 1)
                     refs.append(ref_allele)
                     alts.append(alt_allele)
                     grnas.append(grna_alt_seq.upper())
@@ -1558,6 +1555,7 @@ def multilocus_guides(args):
             norm_chr(chrom, chrstart) for chrom in regions["chrom"].tolist()
         ]
         for index, row in regions.iterrows():
+            logging.info(row['name'])
             chrom = row["chrom"]
             start = row["start"]
             stop = row["stop"]
