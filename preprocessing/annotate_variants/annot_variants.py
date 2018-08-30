@@ -311,7 +311,7 @@ def main(args):
 
     combined_df = pd.concat(combined_df)
     combined_df.to_hdf(
-        f"{out}.hdf5",
+        f"{out}.h5",
         "all",
         mode="w",
         format="table",
@@ -320,7 +320,7 @@ def main(args):
     )
 
     add_metadata(
-        f"{out}.hdf5", args, os.path.basename(__file__), __version__, "Annotation"
+        f"{out}.h5", args, os.path.basename(__file__), __version__, "Annotation"
     )
     logging.info("Done.")
 

@@ -930,6 +930,9 @@ def get_allele_spec_guides(args, locus="ignore"):
                 )
 
     grna_df = pd.DataFrame(grna_dicts)
+    if grna_df.empty:
+        logging.info('No sgRNAs meet the criteria for this locus, exiting.')
+        exit()
 
     # add specificity scores if specified
     if args["--crispor"]:
@@ -1461,6 +1464,9 @@ def get_guides(args, locus="ignore"):
             "cas_type": cas_types,
         }
     )
+    # out['variant_position'] = out['variant_position'].astype(int)
+    out['ref'] = out['ref'].astype(object)
+    out['alt'] = out['alt'].astype(object)
     # out["gRNA_alt"] = ["C" * 20] * out.shape[0]
 
     # add specificity scores if specified

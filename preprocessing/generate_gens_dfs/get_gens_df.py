@@ -189,14 +189,11 @@ def main(args):
 		# check whether chromosome in VCF file includes "chr" in chromosome
 		vcf_chrom = subprocess.Popen(f'bcftools view -H {vcf_in} | cut -f1 | head -1', shell=True, 
 			stdout=subprocess.PIPE).communicate()[0].decode("utf-8").strip()
+
 		# See if chrom contains chr
-		vcf_note = vcf_chrom.startswith('chr')
+		chrstart = vcf_chrom.startswith('chr')
 
-		locus_note = chrom.startswith('chr')
-
-		if locus_note != vcf_note:
-			logging.error(f'Warning: Chromosome notations differ between BED file ({chrom}) and VCF/BCF ({vcf_chrom}). Normalizing.')
-		chrom = norm_chr(chrom, vcf_note)
+		chrom = norm_chr(chrom, chrstart)
 
 		# properly formatted locus string
 		locus=f'{chrom}:'+locus.split(':')[1]
@@ -213,7 +210,7 @@ def main(args):
 		bcl_norm = subprocess.Popen("bcftools norm -m -",shell=True, stdin=bcl_view.stdout, stdout=subprocess.PIPE)
 		bcl_query = subprocess.Popen("bcftools query -f '%CHROM\t%POS\t%REF\t%ALT{0}\n'",shell=True,
 		 stdin=bcl_norm.stdout, stdout=subprocess.PIPE)
-		bcl_query.wait() # Don't do anything else untill bcl_query is done running.
+		bcl_query.wait() # Don't do anything else until bcl_query is done running.
 
 		# output  
 		raw_dat = pd.read_csv(StringIO(bcl_query.communicate()[0].decode("utf-8")), sep='\t', 
