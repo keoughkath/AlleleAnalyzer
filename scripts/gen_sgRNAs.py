@@ -313,24 +313,8 @@ def verify_hdf_files(gen_file, annots_file, chrom, start, stop, max_indel):
     Compares the hdf files, and makes sure the hdf files contain 
     variants in the specified range.
     """
-    start, stop = int(start), int(stop)
-    comp = ["chrom", "pos", "ref", "alt"]
-    # if not set(gen_file['pos'].tolist()) == set(annots_file['pos'].tolist()) and not (gen_file.empty and annots_file.empty):
-    #     print(gen_file[comp].reset_index(drop=True))
-    #     print(annots_file[comp].reset_index(drop=True))
-    #     logging.error("ERROR: gen file and targ file variants do not match.")
-    #     exit(1)
-    # # Check chr
-    # if not len(Counter(gen_file["chrom"]).keys()) == 1:
-    #     logging.error("ERROR: variants map to different chromosomes")  # Should exit?
-    #     exit(0)
-    # # Check vars
-    # if not all(start < int(i) < stop for i in gen_file["pos"]):
-    #     logging.info("Warning: Not all variants are between the defined ranges")
-    # if not any(start < int(i) < stop for i in gen_file["pos"]):
-    #     logging.error("ERROR: no variants in defined range.")
-    # Iterate through the gens file, remove all rows with indels larger than 'max_indel' (in both the re and alt).
     if gen_file.shape != annots_file.shape:
+        annots_file = annots_file.merge(gen_file, on=['chrom','pos','ref','alt'], how='right')[annots_file.columns]
         return gen_file, annots_file
     else:
         indel_too_large = [
@@ -422,9 +406,12 @@ def get_allele_spec_guides(args, locus="ignore"):
 
     chrom = norm_chr(chrom, chrstart)
     # eliminates rows with missing genotypes and gets those where heterozygous
-    bcl_v = f"bcftools view -g ^miss -g het -r {chrom}:{start}-{stop} -H {bcf}"
-    col_names = ["chrom","pos","rsid","ref","alt","score","random","info","gt","genotype"]
-    bcl_view = subprocess.Popen(bcl_v, shell=True, stdout=subprocess.PIPE)
+    # bcl_v = f"bcftools view -g ^miss -g het -r {chrom}:{start}-{stop} -H {bcf}"
+    bcl_view = subprocess.Popen(f'bcftools view -g ^miss -g het -r {chrom}:{start}-{stop} {bcf} -Ou | bcftools query -f"%CHROM\t%POS\t%REF\t[%TGT]\n"', 
+        shell=True, stdout=subprocess.PIPE)
+    # bcl_v = f'bcftools query -f"%CHROM\t%POS\t%REF\t[%TGT]\n"'
+    col_names = ["chrom","pos","ref","translated_genotype"]
+    # bcl_view = subprocess.Popen(f'bcftools query -f"%CHROM\t%POS\t%REF\t[%TGT]\n"', shell=True, stdin=bcf_orig.stdout, stdout=subprocess.PIPE)
     bcl_view.wait()
 
     # print(StringIO(bcl_view.communicate()[0].decode("utf-8")))
@@ -459,6 +446,10 @@ def get_allele_spec_guides(args, locus="ignore"):
     n_cols = len(gens.columns)
     col_names = col_names + (['blah'] * (n_cols - len(col_names)))
     gens.columns = col_names
+    # print(gens.head())
+    gens['gen_1'], gens['gen_2'] = gens['translated_genotype'].str.split('/|\|', 1).str
+    gens['alt'] = np.where(gens['gen_1'] == gens['ref'], gens['gen_2'], gens['gen_1'])
+    gens = gens[['chrom','pos','ref','alt']]
 
     # remove big indels
     gens, var_annots = verify_hdf_files(
