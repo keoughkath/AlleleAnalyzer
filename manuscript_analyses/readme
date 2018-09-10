@@ -1,4 +1,4 @@
-These scripts and files are intended for reproducibility of work presented in our manuscript. They are not part of the ExcisionFinder tool. They contain many hardcoded filepaths etc. which will break when you try to use them. All of these functionalities are in the ExcisionFinder tool. 
+These scripts and files are intended for reproducibility of work presented in our manuscript. They are not part of the AlleleAnalyzer tool. They contain many hardcoded filepaths etc. which will break when you try to use them. All of these functionalities are in the AlleleAnalyzer tool. 
 
 Thanks,
 Kathleen
