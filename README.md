@@ -4,7 +4,7 @@ AlleleAnalyzer is a tool for designing personalized and allele-specific sgRNAs f
 
 **Note**:  If you use this tool and find any issues or anything that is difficult to interpret, please send a message to this Github or to kathleen.keough at gladstone.ucsf.edu
 
-If you use this tool, please cite our [preprint](https://www.biorxiv.org/content/early/2018/06/08/342923).
+If you use this tool, please cite our [preprint](https://www.biorxiv.org/content/early/2018/09/11/342923).
 
 ## Table of Contents
 
