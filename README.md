@@ -1,10 +1,10 @@
-# ExcisionFinder
+# AlleleAnalyzer
 
-ExcisionFinder is a tool for designing personalized and allele-specific sgRNAs for general genome editing and optimizing pairs of sgRNAs for human therapeutic editing.
+AlleleAnalyzer is a tool for designing personalized and allele-specific sgRNAs for general genome editing and optimizing pairs of sgRNAs for human therapeutic editing. This tool was formerly named ExcisionFinder, but ExcisionFinder is now a component of the larger AlleleAnalyzer tool.
 
 **Note**:  If you use this tool and find any issues or anything that is difficult to interpret, please send a message to this Github or to kathleen.keough at gladstone.ucsf.edu
 
-If you use this tool, please cite our [preprint](https://www.biorxiv.org/content/early/2018/06/08/342923).
+If you use this tool, please cite our [preprint](https://www.biorxiv.org/content/early/2018/09/11/342923).
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ If you use this tool, please cite our [preprint](https://www.biorxiv.org/content
 3. Tutorials
 * [Tutorial: Design sgRNAs for allele specific excision of the gene MFN2 in the WTC genome](https://github.com/keoughkath/ExcisionFinder/wiki/Tutorial:-Design-sgRNAs-for-allele-specific-excision-of-the-gene-MFN2-in-the-WTC-genome)
 
-# ExcisionFinder 1000 Genomes analysis dataset
+# AlleleAnalyzer 1000 Genomes analysis dataset
 
 The annotated variant database and gene targetability results from the 1000 Genomes Project are available [here](http://lighthouse.ucsf.edu/public_files_no_password/excisionFinderData_public/ExcisionFinder_manuscript_data/).
 
