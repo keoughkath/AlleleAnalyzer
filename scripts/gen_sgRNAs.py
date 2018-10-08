@@ -414,8 +414,6 @@ def get_allele_spec_guides(args, locus="ignore"):
     # bcl_view = subprocess.Popen(f'bcftools query -f"%CHROM\t%POS\t%REF\t[%TGT]\n"', shell=True, stdin=bcf_orig.stdout, stdout=subprocess.PIPE)
     bcl_view.wait()
 
-    # print(StringIO(bcl_view.communicate()[0].decode("utf-8")))
-
     try:
         gens = pd.read_csv(
         StringIO(bcl_view.communicate()[0].decode("utf-8")),
@@ -426,7 +424,6 @@ def get_allele_spec_guides(args, locus="ignore"):
 
     # load variant annotations
     var_annots = pd.read_hdf(args["<annots_file>"]).query('(chrom == @chrom) and (pos >= @start) and (pos <= @stop)')
-    # print(var_annots.head())
 
     # if gens is empty, annots should be too, double check this
     if gens.empty and not var_annots.empty:
@@ -446,15 +443,14 @@ def get_allele_spec_guides(args, locus="ignore"):
     n_cols = len(gens.columns)
     col_names = col_names + (['blah'] * (n_cols - len(col_names)))
     gens.columns = col_names
-    # print(gens.head())
     gens['gen_1'], gens['gen_2'] = gens['translated_genotype'].str.split('/|\|', 1).str
     gens['alt'] = np.where(gens['gen_1'] == gens['ref'], gens['gen_2'], gens['gen_1'])
     gens = gens[['chrom','pos','ref','alt']]
 
     # remove big indels
-    gens, var_annots = verify_hdf_files(
-        gens, var_annots, chrom, start, stop, int(args["--max_indel"])
-    )
+    # gens, var_annots = verify_hdf_files(
+    #     gens, var_annots, chrom, start, stop, int(args["--max_indel"])
+    # )
 
     # if gens is empty, annots should be too, double check this
     if gens.empty and not var_annots.empty:
@@ -619,8 +615,8 @@ def get_allele_spec_guides(args, locus="ignore"):
                             )
                         )
                     )
-            else:
-                continue
+            # else:
+            #     continue
         # design guides for heterozygous variants that destroy PAMs
         for index, row in vars_destroy_pam.iterrows():
             var = row["pos"]
@@ -880,11 +876,6 @@ def get_allele_spec_guides(args, locus="ignore"):
                     strand="negative",
                     var_type="makes_pam",
                 )
-                if not args["-c"]:
-                    grna_ref_seq, grna_alt_seq = (
-                        make_rev_comp(grna_ref_seq),
-                        make_rev_comp(grna_alt_seq),
-                    )
 
                 chrom = norm_chr(chrom, chrstart)
                 grna_dicts.append(
@@ -913,7 +904,7 @@ def get_allele_spec_guides(args, locus="ignore"):
                                 grna_ref_seq,
                                 grna_alt_seq,
                                 var,
-                                "positive",
+                                "negative",
                                 cas,
                             ],
                         )
@@ -931,7 +922,6 @@ def get_allele_spec_guides(args, locus="ignore"):
     else:
         out = grna_df
     # get rsID and AF info if provided
-    # I'm not convinced this part is working correctly, there might be an issue with ref/alt, need to check
     if args["<gene_vars>"]:
         gene_vars = pd.read_hdf(args["<gene_vars>"])
         gene_vars["chrom"] = [
@@ -941,6 +931,8 @@ def get_allele_spec_guides(args, locus="ignore"):
         out = out.merge(
             gene_vars, how="left", on=["chrom", "variant_position", "ref", "alt"]
         )
+
+    out = out.drop_duplicates()
     return out
 
 
@@ -1109,7 +1101,6 @@ def get_guides(args, locus="ignore"):
 			"variant_position_in_guide",
 			"gRNAs","variant_position","strand",
 			"cas_type"]]
-        # print('simple, line 1112')
         # add specificity scores if specified
         if args["--crispor"]:
             out['gRNA_alt'] = out['gRNAs']
@@ -1584,7 +1575,6 @@ def main(args):
 
     for c in not_in_both:
         logging.info(f"{c} not in CAS_LIST.txt, skipping.")
-    # print args (for debugging)
     logging.info(args)
 
     # determine whether running as multi-locus
@@ -1608,7 +1598,7 @@ def main(args):
     # initiates allele-specific, personalized guide design for single locus
     else:
         logging.info("Finding allele-specific guides.")
-        out = get_allele_spec_guides(args)
+        out = get_allele_spec_guides(args).query('variant_position_in_guide > -1')
         out = filter_out_N_in_PAM(out, CAS_LIST)
 
     # assign unique identifier to each sgRNA
