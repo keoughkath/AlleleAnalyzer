@@ -123,9 +123,11 @@ def targ_pair(variant1, variant2, coding_positions, coding_exon_starts):
     low_var, high_var = sorted([variant1, variant2])
     if low_var in coding_positions or high_var in coding_positions:
         return True
-    else:
+    elif next_exon(low_var, coding_exon_starts):
         # checks whether larger variant position occurs in or after next exon
         return bool(high_var >= next_exon(low_var, coding_exon_starts))
+    else:
+        return False
 
 
 def translate_gene_name(gene_name):
@@ -145,18 +147,24 @@ class Gene:
         self.official_gene_symbol = official_gene_symbol
         self.info = gene_dat.query("index == @self.official_gene_symbol")
         self.n_exons = self.info["exonCount"].item()
-        self.coding_start = self.info["cdsStart"].item()
-        self.coding_end = self.info["cdsEnd"].item()
-        self.coding_exons = [
-            x
-            for x in list(
+        self.coding_start = int(self.info["cdsStart"].item())
+        self.coding_end = int(self.info["cdsEnd"].item())
+        self.coding_exons = []
+        counter = 0
+        counterweight = len(list(
                 zip(
                     list(map(int, self.info["exonStarts"].item().split(",")[:-1])),
                     list(map(int, self.info["exonEnds"].item().split(",")[:-1])),
-                )
-            )
-            if x[0] >= self.coding_start and x[1] <= self.coding_end
-        ]
+                )))
+        for x in list(zip(list(map(int, self.info["exonStarts"].item().split(",")[:-1])),
+                      list(map(int, self.info["exonEnds"].item().split(",")[:-1])))):
+            counter += 1
+            if counter == 1:
+                self.coding_exons.append((max(self.coding_start, x[0]), x[1]))
+            elif counter == counterweight:
+                self.coding_exons.append((x[0], min(self.coding_end, x[1])))
+            else:
+                self.coding_exons.append((x[0], x[1]))
         self.n_coding_exons = len(self.coding_exons)
         self.start = self.info["txStart"].item() - window
         self.end = self.info["txEnd"].item() + window
@@ -342,7 +350,7 @@ def main(args):
     # check whether there are annotated variants for this gene, abort otherwise
 
     if annots_file.empty:
-        logging.error(f"No variants in 1KGP for gene {gene}")
+        logging.error(f"No variants in file for gene {gene}")
         with open(f"{out_prefix}not_enough_hets.txt", "a+") as fout:
             fout.write(gene + "\n")
         exit()
@@ -363,9 +371,8 @@ def main(args):
         ).communicate()[0].decode("utf-8")
     )
     # See if chrom contains chr
-    chrstart = vcf_chrom.startswith("chr")
 
-    chrom = norm_chr(MyGene.chrom, chrstart)
+    chrom = norm_chr(MyGene.chrom, vcf_chrom.startswith("chr"))
 
     bcl_v = f'bcftools view -g "het" -r {chrom}:{MyGene.start}-{MyGene.end} -H {bcf}'
 
@@ -398,7 +405,6 @@ def main(args):
         names=col_names,
         usecols=["chrom", "pos", "ref", "alt"] + samples,
     )
-
     logging.info("Genotypes loaded.")
 
     het_gens = gens[samples].applymap(het).copy()
