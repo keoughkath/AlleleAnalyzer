@@ -1,5 +1,5 @@
 ## Cas9 object info, stored here. To add new Cas enzymes, append it to 
-## the end of this list, with the following attributes, seperated by tabs:
+## the end of this list, with the following attributes, separated by tabs:
 ##	<CAS_NAME>	<PAM_SEQ>	<5'_OR_3'_PAM>
 ## Any line with a leading hash will not be read.
 ## PAM sequences are assumed to be the 5'->3' orientation.
@@ -24,7 +24,7 @@ StCas9_2	NGGNG	3'
 # SaCas9
 SaCas9	NNGRRT	3'
 # SaCas9 KKH variant
-SaCas9_KKH	NNNRT	3'
+SaCas9_KKH	NNNRRT	3'
 # nmCas9
 nmCas9	NNNNGATT	3'
 # campylobacter jejuni Cas9
