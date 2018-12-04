@@ -30,7 +30,7 @@ __version__='0.0.3'
 
 # 3 and 5 prime cas lists
 
-# Get apsolute path for gen_targ_dfs.py, and edit it for cas_object.py
+# Get absolute path for gen_targ_dfs.py, and edit it for cas_object.py
 ef_path = os.path.dirname(os.path.realpath(__file__))
 cas_obj_path = ef_path.replace('preprocessing/find_pams_in_reference','scripts/')
 sys.path.append(cas_obj_path)
@@ -45,7 +45,7 @@ from get_metadata import add_metadata
 
 pd.options.mode.chained_assignment = None
 
-# "three-prime PAMs, e.g. Cas9, PAM is 3' of the sgRNA sequence"
+# three-prime PAMs, e.g. Cas9, PAM is 3' of the sgRNA sequence
 tpp_for = {}
 
 tpp_for['SpCas9'] = r'[atcg]gg' # SpCas9, SpCas9-HF1, eSpCas1.1
@@ -75,7 +75,7 @@ tpp_rev['SaCas9_KKH_rev'] = r'a[tc]{2}[atcg]{3}' # SaCas9 KKH variant reverse co
 tpp_rev['nmCas9_rev'] = r'aa[tg]c[atcg]{4}' # NmCas9 reverse complement 
 tpp_rev['cjCas9_rev'] = r'tgt[actg]{4}' # campylobacter jejuni Cas9
 
-# "five-prime PAMs, e.g. cpf1, PAM is 5' of the sgRNA sequence"
+# five-prime PAMs, e.g. cpf1, PAM is 5' of the sgRNA sequence
 fpp_for = {}
 
 fpp_for['cpf1'] = r'ttt[atcg]' # Cpf1, PAM 5' of guide
