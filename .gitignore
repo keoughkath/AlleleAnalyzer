@@ -1,5 +1,12 @@
 # from https://github.com/github/gitignore/blob/master/Python.gitignore
 
+# jupyter stuff
+*.DS_Store
+
+# figures and data
+*.pdf
+*.tsv
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
