@@ -6,8 +6,8 @@ Written in Python v 3.6.1.
 Kathleen Keough et al 2018.
 
 Usage:
-    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--hom] [--bed] [--max_indel=<S>] [--strict]
-    gen_sgRNAs.py [-chvrd] <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--hom] [--bed] [--max_indel=<S>] --ref_guides [--strict]
+    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--hom] [--bed] [--max_indel=<S>] [--strict] [--sim]
+    gen_sgRNAs.py [-chvrd] <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--hom] [--bed] [--max_indel=<S>] --ref_guides [--strict] [--sim]
     gen_sgRNAs.py -C | --cas-list
 
 Arguments:
@@ -22,7 +22,7 @@ Arguments:
 Options:
     gene_vars              Optional. 1KGP originating file to add rsID and allele frequency (AF) data to variants.
     -h --help              Show this screen and exit.
-    -c                     Do not take the reverse complement of the guide sequence for '-' stranded guides (when the PAM is on the 5' end).
+    -c                     Do not take the reverse complement of the guide sequence for 'negative' stranded guides (when the PAM is on the 5' end).
     -v                     Run in verbose mode (especially useful for debugging, but also for knowing status of script)
     --hom                  Use 'homozygous' mode, personalized sgRNA design. Do not use if ref_guides is specified, they are redundant and non-compatible.
     --crispor=<ref_gen>    Add CRISPOR specificity scores to outputted guides. From Haeussler et al. Genome Biology 2016. 
@@ -34,6 +34,7 @@ Options:
     -C --cas-list          List available cas types and exits.
     --ref_guides           Design guides for reference genome, ignoring variants in region.
     --strict               Only design allele-specific guides where the variant makes or breaks a PAM site. 
+    --sim                  Simulate heterozygous phenotype (used in manuscript)
 """
 
 import pandas as pd
@@ -415,10 +416,25 @@ def get_allele_spec_guides(args, locus="ignore"):
     bcl_view.wait()
 
     try:
-        gens = pd.read_csv(
-        StringIO(bcl_view.communicate()[0].decode("utf-8")),
-        sep="\t",
-        header=None)
+        if args['--sim']:
+            bcl_view = subprocess.Popen(f'bcftools view -g ^miss -g het -r {chrom}:{start}-{stop} {bcf} -Ou | bcftools query -f"%CHROM\t%POS\t%REF\t%ALT\n"', 
+                shell=True, stdout=subprocess.PIPE)
+            col_names_sim = ["chrom","pos","ref","alt"]
+            bcl_view.wait()
+                
+            gens = pd.read_csv(
+                    StringIO(bcl_view.communicate()[0].decode("utf-8")),
+                    sep="\t",
+                    header=None)
+
+            gens.columns = col_names_sim
+
+            # gens['translated_genotype'] = gens['ref'] + '/' + gens['alt']
+        else:
+            gens = pd.read_csv(
+            StringIO(bcl_view.communicate()[0].decode("utf-8")),
+            sep="\t",
+            header=None)
     except pd.io.common.EmptyDataError:
         gens = pd.DataFrame()
 
@@ -440,12 +456,13 @@ def get_allele_spec_guides(args, locus="ignore"):
         )
         return None
 
-    n_cols = len(gens.columns)
-    col_names = col_names + (['blah'] * (n_cols - len(col_names)))
-    gens.columns = col_names
-    gens['gen_1'], gens['gen_2'] = gens['translated_genotype'].str.split('/|\|', 1).str
-    gens['alt'] = np.where(gens['gen_1'] == gens['ref'], gens['gen_2'], gens['gen_1'])
-    gens = gens[['chrom','pos','ref','alt']]
+    if not args['--sim']:
+        n_cols = len(gens.columns)
+        col_names = col_names + (['blah'] * (n_cols - len(col_names)))
+        gens.columns = col_names
+        gens['gen_1'], gens['gen_2'] = gens['translated_genotype'].str.split('/|\|', 1).str
+        gens['alt'] = np.where(gens['gen_1'] == gens['ref'], gens['gen_2'], gens['gen_1'])
+        gens = gens[['chrom','pos','ref','alt']]
 
     # remove big indels
     # gens, var_annots = verify_hdf_files(
@@ -493,11 +510,11 @@ def get_allele_spec_guides(args, locus="ignore"):
         pam_for_pos = np.load(
             os.path.join(pams_dir, f"{chrom}_{cas}_pam_sites_for.npy")
         ).tolist()
-        pam_for_pos = list(filter(lambda x: x >= start and x <= stop, pam_for_pos))
+        pam_for_pos = list(filter(lambda x: x >= start and x <= (start + guide_length + 1), pam_for_pos))
         pam_rev_pos = np.load(
             os.path.join(pams_dir, f"{chrom}_{cas}_pam_sites_rev.npy")
         ).tolist()
-        pam_rev_pos = list(filter(lambda x: x >= start and x <= stop, pam_rev_pos))
+        pam_rev_pos = list(filter(lambda x: x >= (start - guide_length) and x <= stop, pam_rev_pos))
 
         logging.info(f"Currently evaluating {cas}.")
 
@@ -914,7 +931,7 @@ def get_allele_spec_guides(args, locus="ignore"):
     grna_df = pd.DataFrame(grna_dicts)
     if grna_df.empty:
         logging.info('No sgRNAs meet the criteria for this locus, exiting.')
-        exit()
+        return
 
     # add specificity scores if specified
     if args["--crispor"]:
@@ -967,6 +984,8 @@ def simple_guide_design(args, locus="ignore"):
     # get location of annotated PAMs in reference genome
     pams_dir = args["<pams_dir>"]
 
+    guides_out_final = []
+
     for cas in CAS_LIST:
         # get cas info
         cas_obj = cas_object.get_cas_enzyme(cas)
@@ -999,6 +1018,9 @@ def simple_guide_design(args, locus="ignore"):
         pos_stops = [pos - 1 for pos in pam_for_pos]
         neg_stops = [pos + guide_length for pos in pam_rev_pos]
 
+        if len(pam_for_pos) < 1 or len(pam_rev_pos) < 1:
+            return
+
         # make gRNAs
         guides_out = pd.DataFrame()
         guides_out["pam_pos"] = pam_for_pos + pam_rev_pos
@@ -1015,7 +1037,9 @@ def simple_guide_design(args, locus="ignore"):
         guides_out["chrom"] = chrom
         guides_out['variant_position_in_guide'] = np.nan
         guides_out['variant_position'] = np.nan
-        return guides_out
+        guides_out_final.append(guides_out)
+    guides_out_final_df = pd.concat(guides_out_final)
+    return guides_out_final_df
 
 
 def simple_grnas(row, ref_genome, guide_length, chrom):
@@ -1075,11 +1099,6 @@ def get_guides(args, locus="ignore"):
         usecols=["chrom", "pos", "ref", "alt", "genotype"],
     )
 
-    # remove big indels
-    gens, var_annots = verify_hdf_files(
-        gens, var_annots, chrom, start, stop, int(args["--max_indel"])
-    )
-
     # if gens is empty, annots should be too, double check this
     if gens.empty and not var_annots.empty:
         logging.info("Gens and annots not matching up - debug.")
@@ -1087,26 +1106,25 @@ def get_guides(args, locus="ignore"):
 
     # if no variants annotated, proceed to simplest design case
     if gens.empty or args["--ref_guides"]:
-        if locus == 'ignore':
-            out = simple_guide_design(args)
-            out['gRNAs'] = out[['gRNA_ref']]
-            out = out[["chrom","start","stop","ref","alt",
-			"variant_position_in_guide",
-			"gRNAs","variant_position","strand",
-			"cas_type"]]
-        else:
-            out = simple_guide_design(args, locus)
-            out['gRNAs'] = out[['gRNA_ref']]
-            out = out[["chrom","start","stop","ref","alt",
-			"variant_position_in_guide",
-			"gRNAs","variant_position","strand",
-			"cas_type"]]
+        out = simple_guide_design(args, locus)
+        if out is None:
+            return out 
+        out['gRNAs'] = out[['gRNA_ref']]
+        out = out[["chrom","start","stop","ref","alt",
+		"variant_position_in_guide",
+		"gRNAs","variant_position","strand",
+		"cas_type"]]
         # add specificity scores if specified
         if args["--crispor"]:
             out['gRNA_alt'] = out['gRNAs']
             out['gRNA_ref'] = out['gRNAs']
             out = get_crispor_scores(out, args["<out>"], args["--crispor"])
         return out
+
+    # # remove big indels
+    gens, var_annots = verify_hdf_files(
+        gens, var_annots, chrom, start, stop, int(args["--max_indel"])
+    )
 
     # determine which variants are het and which aren't
     gens["het"] = gens["genotype"].apply(het)
@@ -1507,8 +1525,12 @@ def multilocus_guides(args):
             start = row["start"]
             stop = row["stop"]
             guides_df = get_guides(args, f"{chrom}:{start}-{stop}")
-            guides_df["locus"] = row["name"]
-            out_list.append(guides_df)
+            if guides_df is None:
+                print(f'No guides found for {row["name"]}')
+                continue
+            else:
+                guides_df["locus"] = row["name"]
+                out_list.append(guides_df)
     # initiates design of reference guides for multi-locus process
     elif args["--ref_guides"]:
         logging.info("Finding reference guides.")

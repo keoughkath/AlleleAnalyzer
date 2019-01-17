@@ -17,5 +17,5 @@ export chrom=${chroms[$SGE_TASK_ID]}
 echo $SGE_TASK_ID
 echo ${chrom}
 
-python pam_pos_genome.py chr${chrom} /pollard/data/vertebrate_genomes/human/hg38/hg38/hg38.fa cpf1,SpCas9,SpCas9_VRER,SpCas9_EQR,SpCas9_VQR_1,SpCas9_VQR_2,StCas9,StCas9_2,SaCas9,SaCas9_KKH,nmCas9,cjCas9 /pollard/data/projects/AlleleAnalyzer_data/pam_sites_hg38
+time python /pollard/home/kathleen/projects/AlleleAnalyzer/preprocessing/find_pams_in_reference/pam_pos_genome.py chr${chrom} /pollard/data/vertebrate_genomes/human/hg38/hg38/hg38.fa cpf1,SpCas9,SpCas9_VRER,SpCas9_EQR,SpCas9_VQR_1,SpCas9_VQR_2,StCas9,StCas9_2,SaCas9,SaCas9_KKH,nmCas9,cjCas9 /pollard/data/projects/AlleleAnalyzer_data/pam_sites_hg38/
 qstat -j $JOB_ID

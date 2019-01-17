@@ -1,3 +1,20 @@
+# project-specific
+
+*checkpoint.ipynb
+manuscript_analyses/variants_in_published_libraries/src/.ipynb_checkpoints*
+manuscript_analyses/variants_in_published_libraries/src/.ipynb_checkpoints/*
+manuscript_analyses/pams_in_reference_genomes/ucsc_tracks_description_file_both.txt
+manuscript_analyses/1000genomes_analysis/get_gene_list/ncbi_refseq_genes_hg38.txt
+manuscript_analyses/1000genomes_analysis/get_gene_list/readme
+manuscript_analyses/1000genomes_analysis/dat/
+manuscript_analyses/1000genomes_analysis/get_gene_list/chroms_hg19.txt
+manuscript_analyses/1000genomes_analysis/get_gene_list/genes_hg19.txt
+manuscript_analyses/1000genomes_analysis/get_gene_list/genes_hg38.txt
+manuscript_analyses/1000genomes_analysis/get_gene_list/ncbi_refseq_genes_hg19.txt
+manuscript_analyses/pams_in_reference_genomes/track_headers_hg19.txt
+manuscript_analyses/pams_in_reference_genomes/track_headers_hg38.txt
+manuscript_analyses/exac_analysis/regions.csv
+
 # from https://github.com/github/gitignore/blob/master/Python.gitignore
 
 # jupyter stuff

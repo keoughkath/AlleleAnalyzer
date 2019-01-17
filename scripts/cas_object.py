@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 cas_object.py hold Cas info as part of ExcisionFinder. Written in Python v 3.6.1.
-Kathleen Keough and Michael Olvera 2018.
+Kathleen Keough et al 2018.
 
 cas_object.py will do two things:
 	 + hold the Cas object info (one object per Cas enzyme) and 

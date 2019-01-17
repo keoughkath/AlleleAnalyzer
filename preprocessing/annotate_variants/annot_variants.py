@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 annot_variants.py generates a dataframe that stores annotations for each variant in 
@@ -29,7 +29,7 @@ from collections import Counter
 from pyfaidx import Fasta
 import regex
 
-__version__ = "0.0.4"
+__version__ = "1.0.0"
 
 # 3 and 5 prime cas lists
 
@@ -227,6 +227,9 @@ def main(args):
 
     # Read in gens and chroms file, and see if gens file needs to be split.
     gens = pd.read_hdf(gens, "all")
+    if gens.empty:
+        print('No variants in this region.')
+        exit()
     chroms = dict(Counter(gens.chrom)).keys()
 
     if len(chroms) > 1:

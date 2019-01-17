@@ -29,7 +29,7 @@ def filt_pops(df, sample_legend, pop='all'):
         return df.query('pop == @pop or superpop == @pop'), sample_legend.query('superpop == @pop or pop == @pop').shape[0]
 
 def main(args):
-	df = pd.read_csv(args['<input_df>'], sep='\t')
+	df = pd.read_csv(args['<input_df>'], sep='\t', low_memory=False)
 	if args['--sample_legend']:
 		sample_legend = pd.read_csv(args['--sample_legend'], sep='\t', header=0,
 		                           names=['superpop','pop','sex'])

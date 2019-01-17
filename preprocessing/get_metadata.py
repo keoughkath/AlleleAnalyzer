@@ -3,7 +3,7 @@
 """
 get_metadata.py takes in an hdf5 file (.hdf5 or .h5) produced from ExcisionFinder and outputs the 
 Written in Python v 3.6.1. 
-Kathleen Keough et al 2017-2018.
+Kathleen Keough et al 2018.
 
 Usage:
 	get_metadata.py <hdf5_file> 
@@ -16,7 +16,7 @@ from docopt import docopt
 import os, sys, re
 from datetime import datetime
 
-__version__='0.0.1'
+__version__='1.0.0'
 
 
 

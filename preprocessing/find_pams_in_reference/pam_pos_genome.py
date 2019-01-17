@@ -3,7 +3,7 @@
 """
 pam_pos_genome.py finds all PAM positions for given PAMs in a given genome.
 Written in Python v 3.6.1.
-Kathleen Keough et al 2017-2018.
+Kathleen Keough et al 2018.
 
 Usage:
     pam_pos_genome.py <chrom> <fasta> <cas_list> <out>
@@ -26,7 +26,7 @@ import re
 from Bio import SeqIO
 from docopt import docopt
 
-__version__='0.0.3'
+__version__='1.0.0'
 
 # 3 and 5 prime cas lists
 
@@ -170,10 +170,12 @@ def main(args):
     for cas in cas_list:
         current_cas = cas_obj.get_cas_enzyme(cas, os.path.join(cas_obj_path,'CAS_LIST.txt'))
         for_starts, rev_starts = find_spec_pams(current_cas,str(genome[str(chrom)]), orient=current_cas.primeness)
-        savestr_for = f'{outprefix}'+str(chrom)+'_'+str(cas) + '_pam_sites_for.npy'
-        savestr_rev = f'{outprefix}'+str(chrom)+'_'+str(cas) + '_pam_sites_rev.npy'
-        np.save(savestr_for,list(for_starts))
-        np.save(savestr_rev,list(rev_starts))
+        savestr_for = f'{outprefix}'+str(chrom)+'_'+str(cas) + '_pam_sites_for'
+        savestr_rev = f'{outprefix}'+str(chrom)+'_'+str(cas) + '_pam_sites_rev'
+        np.save(savestr_for + '.npy',list(for_starts))
+        np.save(savestr_rev + '.npy',list(rev_starts))
+        np.savetxt(savestr_for + '.txt',list(for_starts))
+        np.savetxt(savestr_rev + '.txt',list(rev_starts))
 
 
 if __name__ == '__main__':

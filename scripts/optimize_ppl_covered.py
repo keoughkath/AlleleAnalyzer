@@ -25,6 +25,7 @@ from pulp import *
 import os
 from docopt import docopt
 
+__version__='1.0.0'
 
 def optimize_probes(
     probes_to_people, num_people=None, min_prop_covered=None, max_probes=None

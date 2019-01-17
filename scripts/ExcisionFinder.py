@@ -342,7 +342,6 @@ def main(args):
         )
 
     # load targetability information for each variant
-
     annots_file = pd.read_hdf(
         annots_file, "all", where=f"pos >= {MyGene.start} and pos <= {MyGene.end}"
     )
@@ -930,7 +929,7 @@ def main(args):
     translated_gene_name = translate_gene_name(gene)
 
     if args["--exhaustive"]:
-        exh_df = pd.concat(overall_exh_list).drop_duplicates()
+        exh_df = pd.concat(overall_exh_list, sort=False).drop_duplicates()
         exh_df.to_csv(f"{out_prefix}_exh.tsv", sep="\t", index=False)
 
     if args["-g"]:
