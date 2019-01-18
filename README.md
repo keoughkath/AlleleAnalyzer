@@ -1,6 +1,6 @@
 # AlleleAnalyzer
 
-AlleleAnalyzer is a tool for designing personalized and allele-specific sgRNAs for general genome editing and optimizing pairs of sgRNAs for human therapeutic editing. This tool was formerly named ExcisionFinder, but ExcisionFinder is now a component of the larger AlleleAnalyzer tool.
+AlleleAnalyzer is a tool for designing personalized and allele-specific sgRNAs for general genome editing and optimizing pairs of sgRNAs for human therapeutic editing. This tool was formerly named ExcisionFinder, but ExcisionFinder is now a component of the larger AlleleAnalyzer tool focused on paired sgRNA design.
 
 **Note**:  If you use this tool and find any issues or anything that is difficult to interpret, please send a message to this Github or to kathleen.keough at gladstone.ucsf.edu
 
