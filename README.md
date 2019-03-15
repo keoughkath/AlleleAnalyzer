@@ -19,6 +19,10 @@ If you use this tool, please cite our [preprint](https://www.biorxiv.org/content
 
 ## Useful links
 
+[PAM sites in UCSC Genome Browser, hg19](https://genome.ucsc.edu/cgi-bin/hgTracks?db=hg19&lastVirtModeType=default&lastVirtModeExtraState=&virtModeType=default&virtMode=0&nonVirtPosition=&position=chr11%3A61717368-61717468&hgsid=710107349_giMIiVkYz3tMheeUnqbOtAFTIgOo)
+
+[PAM sites in UCSC Genome Browser, hg38](https://genome.ucsc.edu/cgi-bin/hgTracks?db=hg38&lastVirtModeType=default&lastVirtModeExtraState=&virtModeType=default&virtMode=0&nonVirtPosition=&position=chr11%3A61957117-61957165&hgsid=710108079_SecTcyDrgBPU4AocIPTRF2Uq4Omd)
+
 [UCSC chromosome fastas, hg19.](http://hgdownload.soe.ucsc.edu/goldenPath/hg19/chromosomes/)
 
 [UCSC chromosome fastas, hg38.](http://hgdownload.soe.ucsc.edu/goldenPath/hg38/chromosomes/)
