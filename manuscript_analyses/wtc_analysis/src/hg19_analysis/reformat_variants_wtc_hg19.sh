@@ -1,0 +1,1 @@
+parallel -j 12 " python /pollard/home/kathleen/projects/AlleleAnalyzer/preprocessing/generate_gens_dfs/get_gens_df.py -v /pollard/home/kathleen/conklin_wt_seq_data/wtc_wgs_data/phased_yin/wtc_PASS_hg19.phased.vcf.gz chr{} /pollard/data/projects/AlleleAnalyzer_data/wtc_data/hg19/wtc_formatted_variants_by_chrom/chr{}.h5 --chrom " ::: {2..22} X Y

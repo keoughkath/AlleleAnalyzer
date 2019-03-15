@@ -134,17 +134,18 @@ def main(args):
 
         os.remove(f'{out}_temp.bed')
     elif args['--chrom']:
-        logging.info('Running get_chr_tables.py on entire chromosome. This might take awhile.')
+        chrom = args['<locus>']
+        print(f'Running on chromosome {chrom}')
+        logging.info('Running on entire chromosome. This might take awhile.')
         # get locus info
         # check whether chromosome in VCF file includes "chr" in chromosome
-        vcf_chrom = str(subprocess.Popen(f'bcftools view -H {vcf_in} | cut -f1 | head -1', shell=True, 
-            stdout=subprocess.PIPE).communicate()[0])
+        vcf_chrom = subprocess.Popen(f'bcftools view -H {vcf_in} | cut -f1 | head -1', shell=True, 
+            stdout=subprocess.PIPE).communicate()[0].decode("utf-8").strip()
+
         # See if chrom contains chr
-        if vcf_chrom.startswith('chr'):
-            chrstart = True
-        else:
-            chrstart = False
-        chrom = norm_chr(args['<locus>'], chrstart)
+        chrstart = vcf_chrom.startswith('chr')
+
+        chrom = norm_chr(chrom, chrstart)
 
         bcl_v=f"bcftools view -g ^miss -r {chrom} {args['<vcf_file>']}"
         
@@ -209,4 +210,5 @@ if __name__ == '__main__':
         logging.basicConfig(level=logging.INFO, format='[%(asctime)s %(name)s:%(levelname)s ]%(message)s')
     else:
         logging.basicConfig(level=logging.ERROR, format='[%(asctime)s %(name)s:%(levelname)s ]%(message)s')
+    print('starting')
     main(arguments)

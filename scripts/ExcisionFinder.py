@@ -24,8 +24,6 @@ Options:
     -s                               Only consider sgRNA sites where variant is in a PAM (strict).
     --window=<window_in_bp>          Window around the gene (in basepairs) to also consider [default: 0]. 
     -g                               Output guides for heterozygous variants that generate targetable pairs. Requires <guides> file.
-    -c                               Run as cohort-type analysis. Default is individual-type. If 
-                                     using cohort-type analysis, you must include chromosome for the gene.
     --not_phased                     Add this if genomes are not phased to skip evaluating whether sites are
                                      on same haplotype.
     --guides=<guides>                Guides file for locus if '-g' specified.
@@ -380,10 +378,6 @@ def main(args):
     samples = bcl_samps.communicate()[0].decode("utf-8").split("\n")[:-1]
 
     # check that user specified cohort if the VCF contains >1 samples
-
-    # if len(samples) > 1 and not args['-c']:
-    #     logging.error('Must specify "-c" if conducting cohort analysis.')
-    #     sys.exit()
 
     col_names = [
         "chrom",
@@ -933,13 +927,8 @@ def main(args):
         exh_df.to_csv(f"{out_prefix}_exh.tsv", sep="\t", index=False)
 
     if args["-g"]:
-        if args["-c"]:
-            logging.info(
-                "Cannot generate guides + get targetability simultaneously in cohort-style analysis, only individual-style."
-            )
-        else:
-            guides_out = pair_guides(args["--guides"], variant1, variant2)
-            guides_out.to_csv(f"{out_prefix}pair_guides.tsv", sep="\t", index=False)
+        guides_out = pair_guides(args["--guides"], variant1, variant2)
+        guides_out.to_csv(f"{out_prefix}pair_guides.tsv", sep="\t", index=False)
 
     # make list of genes that actually get written to HDF5
     with open(f"{out_prefix}genes_evaluated.txt", "a+") as f:

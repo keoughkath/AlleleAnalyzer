@@ -1,5 +1,17 @@
 # project-specific
 
+manuscript_analyses/wtc_analysis/src/hg19_analysis/*.txt
+manuscript_analyses/wtc_analysis/src/hg19_analysis/abandoned/
+manuscript_analyses/variants_in_published_libraries/dat
+manuscript_analyses/set_cover_analysis/BEST1
+manuscript_analyses/to_archive/
+manuscript_analyses/kgp_and_exac/*.pdf
+manuscript_analyses/1000genomes_analysis/src/hg19_analysis/*.txt
+manuscript_analyses/1000genomes_analysis/src/hg19_analysis/plotting/*.npy
+manuscript_analyses/1000genomes_analysis/src/hg19_analysis/plotting/*.txt
+manuscript_analyses/1000genomes_analysis/get_gene_list/chroms_hg38.txt
+manuscript_analyses/exac_analysis/dat/
+dev/*
 *checkpoint.ipynb
 manuscript_analyses/variants_in_published_libraries/src/.ipynb_checkpoints*
 manuscript_analyses/variants_in_published_libraries/src/.ipynb_checkpoints/*
