@@ -1,5 +1,7 @@
 # project-specific
 
+manuscript_analyses/wtc_analysis/src/hg19_analysis/merge_reformatted_variants_wtc_hg19_all_chroms_one.py
+manuscript_analyses/wtc_analysis/src/hg19_analysis/merge_annotations_wtc_hg19_all_chroms_one.py
 manuscript_analyses/wtc_analysis/src/hg19_analysis/*.txt
 manuscript_analyses/wtc_analysis/src/hg19_analysis/abandoned/
 manuscript_analyses/variants_in_published_libraries/dat
