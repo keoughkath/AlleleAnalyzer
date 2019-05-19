@@ -1070,6 +1070,22 @@ def get_guides(args, locus="ignore"):
     else:
         chrom, start, stop = parse_locus(locus)
 
+    if args["--ref_guides"]:
+        out = simple_guide_design(args, locus)
+        if out is None:
+            return out 
+        out['gRNAs'] = out[['gRNA_ref']]
+        out = out[["chrom","start","stop","ref","alt",
+        "variant_position_in_guide",
+        "gRNAs","variant_position","strand",
+        "cas_type"]]
+        # add specificity scores if specified
+        if args["--crispor"]:
+            out['gRNA_alt'] = out['gRNAs']
+            out['gRNA_ref'] = out['gRNAs']
+            out = get_crispor_scores(out, args["<out>"], args["--crispor"])
+        return out
+
     # load variant annotations
     var_annots = pd.read_hdf(
         args["<annots_file>"], where="chrom == chrom and pos >= start and pos <= stop"
@@ -1105,7 +1121,7 @@ def get_guides(args, locus="ignore"):
         exit(1)
 
     # if no variants annotated, proceed to simplest design case
-    if gens.empty or args["--ref_guides"]:
+    if gens.empty:
         out = simple_guide_design(args, locus)
         if out is None:
             return out 
