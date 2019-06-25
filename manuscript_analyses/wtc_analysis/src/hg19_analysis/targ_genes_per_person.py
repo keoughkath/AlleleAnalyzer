@@ -1,6 +1,8 @@
 """
 python targ_genes_per_person.py genes_evaluated.txt samples.txt targ_hdfs_dir/ out_prefix
 Kathleen Keough 2018.
+Gene list should be formatted similarly to a BED file (or you can just insert a BED file,
+ensuring that the gene symbol/ID is in the 4th column).
 """
 
 import pandas as pd
@@ -9,7 +11,7 @@ import numpy as np
 
 # load genes evaluated
 with open(sys.argv[1],'r') as f:
-    genes_eval = pd.read_csv(f, sep='\t')#f.read().splitlines()
+    genes_eval = pd.read_csv(f, sep='\t')
 
 # set up dict to catch targetable genes per person
 targ_genes = {}

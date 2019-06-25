@@ -6,8 +6,8 @@ Written in Python v 3.6.1.
 Kathleen Keough et al 2018.
 
 Usage:
-    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--hom] [--bed] [--max_indel=<S>] [--strict] [--sim]
-    gen_sgRNAs.py [-chvrd] <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--hom] [--bed] [--max_indel=<S>] --ref_guides [--strict] [--sim]
+    gen_sgRNAs.py [-chvrd] <bcf> <annots_file> <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--hom] [--bed] [--max_indel=<S>] [--strict] [--sim] [--min_score=<S>]
+    gen_sgRNAs.py [-chvrd] <locus> <pams_dir> <ref_fasta> <out> <cas_types> <guide_length> [<gene_vars>] [--crispor=<ref_gen>] [--hom] [--bed] [--max_indel=<S>] --ref_guides [--strict] [--sim] [--min_score=<S>]
     gen_sgRNAs.py -C | --cas-list
 
 Arguments:
@@ -30,11 +30,12 @@ Options:
     --bed                  Design sgRNAs for multiple regions specified in a BED file.
     --max_indel=<S>        Maximum size for INDELS. Must be smaller than guide_length [default: 5].
     -r                     Return guides as RNA sequences rather than DNA sequences.
-    -d                     Return dummy guides (all --- as opposed to GGG or CCC) for variants without a PAM, e.g. when variant makes or breaks a PAM. 
+    -d                     Return dummy guides (all --- as opposed to GGG or CCC) for variants without a PAM, e.g. when variant makes or breaks a PAM. Only for allele-specific sgRNA design.
     -C --cas-list          List available cas types and exits.
     --ref_guides           Design guides for reference genome, ignoring variants in region.
     --strict               Only design allele-specific guides where the variant makes or breaks a PAM site. 
     --sim                  Simulate heterozygous phenotype (used in manuscript)
+    --min_score=<S>        Filters sgRNAs with CRISPOR predicted specificity score less than this threshold [default: 0].
 """
 
 import pandas as pd
@@ -228,7 +229,8 @@ def make_rev_comp(s):
     return s[::-1].translate(s[::-1].maketrans("ACGT", "TGCA"))
 
 
-def get_crispor_scores(out_df, outdir, ref_gen):
+def get_crispor_scores(out_df, outdir, ref_gen, min_score=0):
+    min_score = int(min_score)
     guide_seqs_ref = [">ref_guide_seqs\n"]
     guide_seqs_alt = [">alt_guide_seqs\n"]
     for index, row in out_df.iterrows():
@@ -250,16 +252,16 @@ def get_crispor_scores(out_df, outdir, ref_gen):
     print("Running crispor.")
     # error_out = os.path.join(outdir, 'crispor_error.txt')
     error_out = os.path.join(os.path.dirname(outdir), "crispor_error.txt")
-    command = f"source activate crispor; \
+    command = f"conda activate crispor; \
     python2 {run_name} ref_seqs_nosave.fa nosave_ref_scores.tsv &> {error_out};\
     python2 {run_name} alt_seqs_nosave.fa nosave_alt_scores.tsv &> {error_out};\
-    source deactivate crispor"
+    conda deactivate"
+    # print(command)
     subprocess.run(command, shell=True)
     print("crispor done")
-    # subprocess.run('source deactivate crispor', shell=True)
     # remove seq files
-    os.remove("ref_seqs_nosave.fa")
-    os.remove("alt_seqs_nosave.fa")
+    # os.remove("ref_seqs_nosave.fa")
+    # os.remove("alt_seqs_nosave.fa")
     # grab scores from files outputted from CRISPOR
     score_dir_ref = pd.read_csv(
         "nosave_ref_scores.tsv",
@@ -306,6 +308,11 @@ def get_crispor_scores(out_df, outdir, ref_gen):
     # output outdir with its new score columns
     outdf = out_df.merge(merge_df_ref, how="left", on="gRNA_ref")
     outdf = outdf.merge(merge_df_alt, how="left", on="gRNA_alt")
+    outdf = outdf.replace(np.nan, 0)
+    outdf = outdf.replace('None', 0)
+    outdf['scores_ref'] = outdf['scores_ref'].astype(int)
+    outdf['scores_alt'] = outdf['scores_alt'].astype(int)
+    outdf = outdf.query('(scores_ref >= @min_score) or (scores_alt >= @min_score)').copy()
     return outdf
 
 
@@ -408,38 +415,37 @@ def get_allele_spec_guides(args, locus="ignore"):
     chrom = norm_chr(chrom, chrstart)
     # eliminates rows with missing genotypes and gets those where heterozygous
     # bcl_v = f"bcftools view -g ^miss -g het -r {chrom}:{start}-{stop} -H {bcf}"
-    bcl_view = subprocess.Popen(f'bcftools view -g ^miss -g het -r {chrom}:{start}-{stop} {bcf} -Ou | bcftools query -f"%CHROM\t%POS\t%REF\t[%TGT]\n"', 
-        shell=True, stdout=subprocess.PIPE)
+    # bcl_view = subprocess.Popen(f'bcftools view -g ^miss -g het -r {chrom}:{start}-{stop} {bcf} -Ou | bcftools query -f"%CHROM\t%POS\t%REF\t[%TGT]\n"', 
+    #     shell=True, stdout=subprocess.PIPE)
     # bcl_v = f'bcftools query -f"%CHROM\t%POS\t%REF\t[%TGT]\n"'
     col_names = ["chrom","pos","ref","translated_genotype"]
     # bcl_view = subprocess.Popen(f'bcftools query -f"%CHROM\t%POS\t%REF\t[%TGT]\n"', shell=True, stdin=bcf_orig.stdout, stdout=subprocess.PIPE)
-    bcl_view.wait()
+    # bcl_view.wait()
 
     try:
         if args['--sim']:
             bcl_view = subprocess.Popen(f'bcftools view -g ^miss -g het -r {chrom}:{start}-{stop} {bcf} -Ou | bcftools query -f"%CHROM\t%POS\t%REF\t%ALT\n"', 
                 shell=True, stdout=subprocess.PIPE)
-            col_names_sim = ["chrom","pos","ref","alt"]
             bcl_view.wait()
+            col_names_sim = ["chrom","pos","ref","alt"]
                 
             gens = pd.read_csv(
                     StringIO(bcl_view.communicate()[0].decode("utf-8")),
                     sep="\t",
                     header=None)
-
             gens.columns = col_names_sim
 
             # gens['translated_genotype'] = gens['ref'] + '/' + gens['alt']
         else:
+            bcl_view = subprocess.Popen(f'bcftools view -g ^miss -g het -r {chrom}:{start}-{stop} {bcf} -Ou | bcftools query -f"%CHROM\t%POS\t%REF\t[%TGT]\n"', 
+            shell=True, stdout=subprocess.PIPE)
+            bcl_view.wait()
             gens = pd.read_csv(
             StringIO(bcl_view.communicate()[0].decode("utf-8")),
             sep="\t",
             header=None)
     except pd.io.common.EmptyDataError:
         gens = pd.DataFrame()
-
-    # load variant annotations
-    var_annots = pd.read_hdf(args["<annots_file>"]).query('(chrom == @chrom) and (pos >= @start) and (pos <= @stop)')
 
     # if gens is empty, annots should be too, double check this
     if gens.empty and not var_annots.empty:
@@ -463,6 +469,13 @@ def get_allele_spec_guides(args, locus="ignore"):
         gens['gen_1'], gens['gen_2'] = gens['translated_genotype'].str.split('/|\|', 1).str
         gens['alt'] = np.where(gens['gen_1'] == gens['ref'], gens['gen_2'], gens['gen_1'])
         gens = gens[['chrom','pos','ref','alt']]
+
+    # load variant annotations
+    if not gens.empty:
+        variants = set(gens.pos.tolist())
+        # var_annots = pd.read_hdf(args["<annots_file>"]).query('(chrom == @chrom) and (pos >= @start) and (pos <= @stop)')
+        var_annots = pd.read_hdf(args["<annots_file>"]).query('(chrom == @chrom) and (pos in @variants)')
+
 
     # remove big indels
     # gens, var_annots = verify_hdf_files(
@@ -935,7 +948,10 @@ def get_allele_spec_guides(args, locus="ignore"):
 
     # add specificity scores if specified
     if args["--crispor"]:
-        out = get_crispor_scores(grna_df, args["<out>"], args["--crispor"])
+        if args['--min_score'] != None:
+            out = get_crispor_scores(grna_df, args["<out>"], args["--crispor"], args["--min_score"])
+        else:
+            out = get_crispor_scores(grna_df, args["<out>"], args["--crispor"])
     else:
         out = grna_df
     # get rsID and AF info if provided
@@ -1083,7 +1099,10 @@ def get_guides(args, locus="ignore"):
         if args["--crispor"]:
             out['gRNA_alt'] = out['gRNAs']
             out['gRNA_ref'] = out['gRNAs']
-            out = get_crispor_scores(out, args["<out>"], args["--crispor"])
+            if args['--min_score'] != None:
+                out = get_crispor_scores(out, args["<out>"], args["--crispor"], args["--min_score"])
+            else:
+                out = get_crispor_scores(out, args["<out>"], args["--crispor"])
         return out
 
     # load variant annotations
@@ -1127,14 +1146,17 @@ def get_guides(args, locus="ignore"):
             return out 
         out['gRNAs'] = out[['gRNA_ref']]
         out = out[["chrom","start","stop","ref","alt",
-		"variant_position_in_guide",
-		"gRNAs","variant_position","strand",
-		"cas_type"]]
+        "variant_position_in_guide",
+        "gRNAs","variant_position","strand",
+        "cas_type"]]
         # add specificity scores if specified
         if args["--crispor"]:
             out['gRNA_alt'] = out['gRNAs']
             out['gRNA_ref'] = out['gRNAs']
-            out = get_crispor_scores(out, args["<out>"], args["--crispor"])
+            if args['--min_score'] != None:
+                out = get_crispor_scores(out, args["<out>"], args["--crispor"], args["--min_score"])
+            else:
+                out = get_crispor_scores(out, args["<out>"], args["--crispor"])
         return out
 
     # # remove big indels
@@ -1159,7 +1181,6 @@ def get_guides(args, locus="ignore"):
 
     # merge annots and genotypes
     var_annots = var_annots.merge(gens)
-
     # initialize dictionary to save locations of PAM proximal variants
     pam_prox_vars = {}
 
@@ -1489,7 +1510,10 @@ def get_guides(args, locus="ignore"):
     if args["--crispor"]:
         out['gRNA_alt'] = out['gRNAs']
         out['gRNA_ref'] = out['gRNAs']
-        out = get_crispor_scores(out, args["<out>"], args["--crispor"])
+        if args['--min_score'] != None:
+            out = get_crispor_scores(out, args["<out>"], args["--crispor"], args["--min_score"])
+        else:
+            out = get_crispor_scores(out, args["<out>"], args["--crispor"])
 
     # get rsID and AF info if provided
     if args["<gene_vars>"]:
@@ -1501,7 +1525,6 @@ def get_guides(args, locus="ignore"):
         )
 
     out = out.drop_duplicates()
-    
     return out
 
 
@@ -1559,7 +1582,10 @@ def multilocus_guides(args):
             if args["--crispor"]:
                 # out['gRNA_alt'] = out['gRNAs']
                 # out['gRNA_ref'] = out['gRNAs']
-                out = get_crispor_scores(out, args["<out>"], args["--crispor"])
+                if args['--min_score'] != None:
+                    out = get_crispor_scores(out, args["<out>"], args["--crispor"], args["--min_score"])
+                else:
+                    out = get_crispor_scores(out, args["<out>"], args["--crispor"])
             out_list.append(out)
     # initiates design of allele-specific guides for multi-locus process
     else:
@@ -1596,7 +1622,6 @@ def multilocus_guides(args):
     # assembles full output dataframe for all loci evaluated
     out = pd.concat(out_list)
     # out = pd.concat(list(filter(None,out_list)))
-
     return out
 
 

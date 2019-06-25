@@ -196,7 +196,7 @@ def main(args):
     # save to HDF
     out_fname=f'{out}.h5'
 
-    raw_dat.to_csv(f'{out}.csv')
+    # raw_dat.to_csv(f'{out}.csv')
     raw_dat.to_hdf(out_fname,'all', data_columns=True)
 
     add_metadata(out_fname, args, os.path.basename(__file__), __version__, 'Gens')

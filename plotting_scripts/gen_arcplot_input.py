@@ -40,7 +40,7 @@ def main(args):
 		all_pops = df
 		n_pop = int(input('Enter number of individuals: '))
 
-	inds_per_pair = all_pops.groupby(['var1','var2']).ind.count().reset_index()
+	inds_per_pair = all_pops[['var1','var2','ind']].drop_duplicates().groupby(['var1','var2']).ind.count().reset_index()
 	inds_per_pair['perc_shared'] = inds_per_pair['ind'] / n_pop * 100.0
 	inds_per_pair.columns = ['var1','var2','n_inds','percent_pop_covered']
 

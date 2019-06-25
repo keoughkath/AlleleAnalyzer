@@ -6,7 +6,7 @@ library(ggraph)
 library(igraph)
 library(viridis)
 
-print(sessionInfo())
+# print(sessionInfo())
 
 args = commandArgs(trailingOnly=TRUE)
 
@@ -32,6 +32,9 @@ lout = create_layout(gr,layout = 'linear',use.numeric=TRUE,sort.by='POS')
 # pops=unique(counts_filt_overall$pop)
 # print(pops)
 
+# print(lout) # this is working
+
+p = ggraph(lout)
 
 p = ggraph(lout, show.legend=FALSE) +
   geom_edge_arc(aes(colour = percent_pop_covered), edge_width=0.4) + # , show.legend=FALSE

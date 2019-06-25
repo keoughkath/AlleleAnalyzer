@@ -48,11 +48,11 @@ import cas_object as cas_obj
 
 # Get absolute path for ExcisionFinder.py, and edit it for cas_object.py
 ef_path = os.path.dirname(os.path.realpath(__file__))
-metadata_path = "/".join(ef_path.split("/")[:-1] + ["preprocessing"])
+metadata_path = '/'.join(ef_path.split('/')[:-1] + ['preprocessing'])
 sys.path.append(metadata_path)
 from get_metadata import add_metadata
 
-__version__ = "0.0.0"
+__version__ = '0.0.0'
 
 
 def load_gene_gene_dat(gene_dat_path):
