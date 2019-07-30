@@ -1,6 +1,6 @@
 # AlleleAnalyzer
 
-AlleleAnalyzer is a tool for designing personalized and allele-specific sgRNAs for general genome editing and optimizing pairs of sgRNAs for human therapeutic editing. This tool was formerly named ExcisionFinder, but ExcisionFinder is now a component of the larger AlleleAnalyzer tool focused on paired sgRNA design.
+The CRISPR/Cas system is a highly specific genome editing tool capable of distinguishing alleles differing by even a single base pair. Target sites might carry genetic variations that are not distinguishable by sgRNA designing tools based on one reference genome. AlleleAnalyzer is open-source software that incorporates single nucleotide variants and short insertions and deletions to design sgRNAs for precisely editing one or multiple haplotypes of a sequenced genome, currently supporting eleven Cas proteins.  It also leverages patterns of shared genetic variation to optimize sgRNA design for different human populations. AlleleAnalyzer is available at https://github.com/keoughkath/AlleleAnalyzer.
 
 **Note**:  If you use this tool and find any issues or anything that is difficult to interpret, please send a message to this Github or to kathleen.keough at gladstone.ucsf.edu
 
