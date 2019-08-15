@@ -4,7 +4,7 @@ The CRISPR/Cas system is a highly specific genome editing tool capable of distin
 
 **Note**:  If you use this tool and find any issues or anything that is difficult to interpret, please send a message to this Github or to kathleen.keough at gladstone.ucsf.edu
 
-If you use this tool, please cite our [preprint](https://www.biorxiv.org/content/early/2018/09/11/342923).
+If you use this tool, please cite our [paper in Genome Biology](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-019-1783-3).
 
 ## Table of Contents
 
