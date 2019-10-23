@@ -439,7 +439,7 @@ def main(args):
     for var1, var2 in itertools.product(variants, repeat=2):
         if (
             (var1 != var2)
-            and (max([var1, var2]) <= min([var1, var2]) + 10000)
+            and (max([var1, var2]) <= min([var1, var2]) + maxcut)
             and (targ_pair(var1, var2, coding_positions, coding_exon_starts))
         ):
             variant1.append(var1)
