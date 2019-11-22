@@ -1,4 +1,3 @@
-
 library(readr)
 library(tidyr)
 library(dplyr)
@@ -8,6 +7,7 @@ library(igraph)
 library(viridis)
 
 print(sessionInfo())
+options(error=function()traceback(2))
 
 args = commandArgs(trailingOnly=TRUE)
 
@@ -25,10 +25,11 @@ title = toString(args[7])
 counts_filt_overall = subset(read.table(file = toString(args[1]), sep='\t',header=TRUE), percent_pop_covered >= filt)
 
 vert = unique(c(counts_filt_overall$var1,counts_filt_overall$var2)) # setting up vertices for each arc
+
 gr = graph_from_data_frame(counts_filt_overall %>% select(var1, var2, n_inds, percent_pop_covered) %>% arrange(percent_pop_covered),
                            vertices = data.frame(name=vert,POS=vert))
-lout = create_layout(gr,layout = 'linear',use.numeric=TRUE,sort.by='POS')
 
+lout = create_layout(gr,layout = 'linear',use.numeric=TRUE,sort.by='POS')
 
 p = ggraph(lout) +
   geom_edge_arc(aes(colour = percent_pop_covered), edge_width=0.7) +
@@ -50,6 +51,8 @@ p = ggraph(lout) +
         panel.grid.minor = element_blank(),
         axis.line = element_blank(),
         plot.background = element_rect(fill='black'),
-        legend.background = element_rect(fill='black')) 
+        legend.background = element_rect(fill='black'))
 
-ggsave(paste(out_prefix,'arcplot.pdf', sep=''),plot=p, width=7.5, height=2.5, dpi=300)
+ggsave(paste(out_prefix,'arcplot.pdf', sep=''), plot=p, width=7.5, height=2.5, dpi=300)
+
+

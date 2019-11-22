@@ -1,5 +1,6 @@
 name: crispor
 channels:
+  - anaconda
   - bioconda
   - daler
   - bcbio
@@ -7,7 +8,7 @@ dependencies:
   - python=2.7
   - twobitreader
   - pytabix
-  - scikit-learn==0.16.1
+  - scikit-learn=0.16.1
   - biopython
   - matplotlib
   - scipy

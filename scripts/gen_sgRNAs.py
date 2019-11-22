@@ -252,7 +252,8 @@ def get_crispor_scores(out_df, outdir, ref_gen, min_score=0):
     print("Running crispor.")
     # error_out = os.path.join(outdir, 'crispor_error.txt')
     error_out = os.path.join(os.path.dirname(outdir), "crispor_error.txt")
-    command = f"conda activate crispor; \
+    command = f"source ~/miniconda3/etc/profile.d/conda.sh; \
+    conda activate crispor; \
     python2 {run_name} ref_seqs_nosave.fa nosave_ref_scores.tsv &> {error_out};\
     python2 {run_name} alt_seqs_nosave.fa nosave_alt_scores.tsv &> {error_out};\
     conda deactivate"
@@ -378,6 +379,8 @@ def get_allele_spec_guides(args, locus="ignore"):
     """ 
     Outputs dataframe with allele-specific guides.
     """
+
+    var_annots = pd.read_hdf(args['<annots_file>'])
 
     # load genotypes
     bcf = args["<bcf>"]
@@ -523,7 +526,7 @@ def get_allele_spec_guides(args, locus="ignore"):
         pam_for_pos = np.load(
             os.path.join(pams_dir, f"{chrom}_{cas}_pam_sites_for.npy")
         ).tolist()
-        pam_for_pos = list(filter(lambda x: x >= start and x <= (start + guide_length + 1), pam_for_pos))
+        pam_for_pos = list(filter(lambda x: x >= start and x <= (stop + guide_length + 1), pam_for_pos))
         pam_rev_pos = np.load(
             os.path.join(pams_dir, f"{chrom}_{cas}_pam_sites_rev.npy")
         ).tolist()

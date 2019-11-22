@@ -64,7 +64,7 @@ def get_range_upstream(pam_pos, guide_len):
     :param pam_pos: position of PAM, int.
     :return: sgRNA seed region positions, set of ints.
     """
-    sgrna = set(range(pam_pos - (guide_len + 1), pam_pos))
+    sgrna = set(range(pam_pos - guide_len, pam_pos))
     return sgrna
 
 
