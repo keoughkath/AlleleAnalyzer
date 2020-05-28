@@ -1272,8 +1272,8 @@ def get_guides(args, locus="ignore"):
                     len(vars_in_sgRNA) == 1
                 ):  # amending for >1 variants in seed region not yet supported
                     var = vars_in_sgRNA[0]
-                    ref_allele = hom_gens.query("pos == @var")["ref"].item()
-                    alt_allele = hom_gens.query("pos == @var")["alt"].item()
+                    ref_allele = hom_gens.query("pos == @var")["ref"].tolist()[0]
+                    alt_allele = hom_gens.query("pos == @var")["alt"].tolist()[0]
                     grna_ref_seq, grna_alt_seq = get_alt_seq(
                         chrom,
                         pam_site,
@@ -1445,9 +1445,8 @@ def get_guides(args, locus="ignore"):
                 pam_site = pos
                 if len(vars_in_sgRNA) == 1:
                     var = vars_in_sgRNA[0]
-                    # ref_allele = hom_gens.query('pos == @pos')['ref'].item()
-                    alt_allele = hom_gens.query("pos == @var")["alt"].item()
-                    ref_allele = hom_gens.query("pos == @var")["ref"].item()
+                    alt_allele = hom_gens.query("pos == @var")["alt"].tolist()[0]
+                    ref_allele = hom_gens.query("pos == @var")["ref"].tolist()[0]
                     grna_ref_seq, grna_alt_seq = get_alt_seq(
                         chrom,
                         pam_site,
