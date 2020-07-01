@@ -1656,6 +1656,9 @@ def main(args):
                 out = filter_out_N_in_PAM(out, CAS_LIST)
 
     # initiates personalized guide design for single locus
+    if args["--ref_guides"]:
+        out = get_guides(args)
+        out = filter_out_N_in_PAM(out, CAS_LIST)
     elif args["--hom"]:
         logging.info("Finding non-allele-specific guides.")
         out = get_guides(args)
@@ -1681,6 +1684,7 @@ def main(args):
         out["gRNA_alt"] = out["gRNA_alt"].replace(replace_dummy)
 
     # saves output
+    print(out.head())
     out.to_csv(args["<out>"] + ".tsv", sep="\t", index=False)
     logging.info("Done.")
 

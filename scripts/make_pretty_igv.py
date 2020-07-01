@@ -114,7 +114,7 @@ def main(args):
 
     header_str = f"track name={track_name} description=AS cut sites as produced by ExcisionFinder visibility=3 useScore=1"
 
-    gene_bed_display.to_csv(
+    gene_bed_display.replace({'positive':'+','negative':'-'}).to_csv(
         outfile + ".bed",
         sep="\t",
         index=False,
