@@ -421,7 +421,8 @@ def get_allele_spec_guides(args, locus="ignore"):
     # bcl_view = subprocess.Popen(f'bcftools view -g ^miss -g het -r {chrom}:{start}-{stop} {bcf} -Ou | bcftools query -f"%CHROM\t%POS\t%REF\t[%TGT]\n"', 
     #     shell=True, stdout=subprocess.PIPE)
     # bcl_v = f'bcftools query -f"%CHROM\t%POS\t%REF\t[%TGT]\n"'
-    col_names = ["chrom","pos","ref","translated_genotype"]
+    # col_names = ["chrom","pos","ref","translated_genotype"]
+    col_names = ["chrom","pos","ref","alt"]
     # bcl_view = subprocess.Popen(f'bcftools query -f"%CHROM\t%POS\t%REF\t[%TGT]\n"', shell=True, stdin=bcf_orig.stdout, stdout=subprocess.PIPE)
     # bcl_view.wait()
 
@@ -440,7 +441,9 @@ def get_allele_spec_guides(args, locus="ignore"):
 
             # gens['translated_genotype'] = gens['ref'] + '/' + gens['alt']
         else:
-            bcl_view = subprocess.Popen(f'bcftools view -g ^miss -g het -r {chrom}:{start}-{stop} {bcf} -Ou | bcftools query -f"%CHROM\t%POS\t%REF\t[%TGT]\n"', 
+            # bcl_view = subprocess.Popen(f'bcftools view -g ^miss -g het -r {chrom}:{start}-{stop} {bcf} -Ou | bcftools query -f"%CHROM\t%POS\t%REF\t[%TGT]\n"', 
+            # shell=True, stdout=subprocess.PIPE)
+            bcl_view = subprocess.Popen(f'bcftools view -g ^miss -g het -r {chrom}:{start}-{stop} {bcf} -Ou | bcftools query -f"%CHROM\t%POS\t%REF\t%ALT\n"', 
             shell=True, stdout=subprocess.PIPE)
             bcl_view.wait()
             gens = pd.read_csv(
@@ -469,8 +472,10 @@ def get_allele_spec_guides(args, locus="ignore"):
         n_cols = len(gens.columns)
         col_names = col_names + (['blah'] * (n_cols - len(col_names)))
         gens.columns = col_names
-        gens['gen_1'], gens['gen_2'] = gens['translated_genotype'].str.split('/|\|', 1).str
-        gens['alt'] = np.where(gens['gen_1'] == gens['ref'], gens['gen_2'], gens['gen_1'])
+        # if gens['translated_genotype'].isna().any():
+        # 	gens['translated_genotype'] = gens['ref'] + '/' + gens['alt']
+        # gens['gen_1'], gens['gen_2'] = gens['translated_genotype'].str.split('/|\|', 1).str
+        # gens['alt'] = np.where(gens['gen_1'] == gens['ref'], gens['gen_2'], gens['gen_1'])
         gens = gens[['chrom','pos','ref','alt']]
 
     # load variant annotations
@@ -1684,7 +1689,6 @@ def main(args):
         out["gRNA_alt"] = out["gRNA_alt"].replace(replace_dummy)
 
     # saves output
-    print(out.head())
     out.to_csv(args["<out>"] + ".tsv", sep="\t", index=False)
     logging.info("Done.")
 
