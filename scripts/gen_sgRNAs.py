@@ -1018,13 +1018,13 @@ def simple_guide_design(args, locus="ignore"):
         ref_genome = Fasta(args["<ref_fasta>"], as_raw=True)
 
         # get PAM locations for this variety of Cas
-        chrom = chrom.replace('chr','')
+        # chrom = chrom.replace('chr','')
         pam_for_pos = np.load(
-            os.path.join(pams_dir, f"chr{chrom}_{cas}_pam_sites_for.npy")
+            os.path.join(pams_dir, f"{chrom}_{cas}_pam_sites_for.npy")
         ).tolist()
         pam_for_pos = list(filter(lambda x: x >= start and x <= stop, pam_for_pos))
         pam_rev_pos = np.load(
-            os.path.join(pams_dir, f"chr{chrom}_{cas}_pam_sites_rev.npy")
+            os.path.join(pams_dir, f"{chrom}_{cas}_pam_sites_rev.npy")
         ).tolist()
         pam_rev_pos = list(filter(lambda x: x >= start and x <= stop, pam_rev_pos))
 
@@ -1073,11 +1073,11 @@ def simple_grnas(row, ref_genome, guide_length, chrom):
     strand = row["strand"]
     if strand == "positive":
         # reference sgRNA
-        ref_seq = ref_genome["chr" + str(chrom)][
+        ref_seq = ref_genome[str(chrom)][
             row["pam_pos"] - guide_length - 1 : row["pam_pos"] - 1
         ]
     elif strand == "negative":
-        ref_seq = ref_genome["chr" + str(chrom)][
+        ref_seq = ref_genome[str(chrom)][
             row["pam_pos"] : row["pam_pos"] + guide_length
         ]
     return ref_seq.upper()
@@ -1585,15 +1585,17 @@ def multilocus_guides(args):
             start = row["start"]
             stop = row["stop"]
             out = simple_guide_design(args, f"{chrom}:{start}-{stop}")
-            out["locus"] = row["name"]
-            if args["--crispor"]:
-                # out['gRNA_alt'] = out['gRNAs']
-                # out['gRNA_ref'] = out['gRNAs']
-                if args['--min_score'] != None:
-                    out = get_crispor_scores(out, args["<out>"], args["--crispor"], args["--min_score"])
-                else:
-                    out = get_crispor_scores(out, args["<out>"], args["--crispor"])
-            out_list.append(out)
+            # sometimes gRNAs can't be designed for a particular locus, skip in that instance
+            if not out is None:
+                out["locus"] = row["name"]
+                if args["--crispor"]:
+                    # out['gRNA_alt'] = out['gRNAs']
+                    # out['gRNA_ref'] = out['gRNAs']
+                    if args['--min_score'] != None:
+                        out = get_crispor_scores(out, args["<out>"], args["--crispor"], args["--min_score"])
+                    else:
+                        out = get_crispor_scores(out, args["<out>"], args["--crispor"])
+                out_list.append(out)
     # initiates design of allele-specific guides for multi-locus process
     else:
         logging.info("Finding allele-specific guides.")
@@ -1661,15 +1663,15 @@ def main(args):
                 out = filter_out_N_in_PAM(out, CAS_LIST)
 
     # initiates personalized guide design for single locus
-    if args["--ref_guides"]:
+    if not args["--bed"] and args["--ref_guides"]:
         out = get_guides(args)
         out = filter_out_N_in_PAM(out, CAS_LIST)
-    elif args["--hom"]:
+    elif not args["--bed"] and args["--hom"]:
         logging.info("Finding non-allele-specific guides.")
         out = get_guides(args)
         out = filter_out_N_in_PAM(out, CAS_LIST)
     # initiates allele-specific, personalized guide design for single locus
-    else:
+    elif not args["--bed"]:
         logging.info("Finding allele-specific guides.")
         out = get_allele_spec_guides(args).query('variant_position_in_guide > -1')
         out = filter_out_N_in_PAM(out, CAS_LIST)
